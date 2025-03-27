@@ -302,6 +302,10 @@ if __name__=='__main__':
             #             data.ctrl[right_gripper_actuator] = 0.002
             #         else:
             #             data.ctrl[right_gripper_actuator] = 0.037
+
+
+
+            #setting 
             for index in range(6):
                 data.ctrl[left_joint_actuator[index]] = left_robot.dxl.joint_states.position[index]
                 data.ctrl[right_joint_actuator[index]] = right_robot.dxl.joint_states.position[index]
@@ -332,6 +336,20 @@ if __name__=='__main__':
             #         and r_ori_achieved
             #     ):
             #         break
+
+
+
+
+             # Compute the Jacobian
+            J_pos = np.zeros((3, model.nv))  # Jacobian for linear velocity
+            J_rot = np.zeros((3, model.nv))  # Jacobian for angular velocity
+        
+            # Compute the Jacobian for the end-effector
+            mink.mj_jacBody(model, data, J_pos, J_rot,model.name2id("left/target"))
+
+            print(data.qvel)
+
+
 
             # data.ctrl[actuator_ids] = configuration.q[dof_ids]
             compensate_gravity(model, data, [left_subtree_id, right_subtree_id])

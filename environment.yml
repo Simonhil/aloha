@@ -2,9 +2,11 @@ name: aloha_test
 dependencies:
   - python=3.9
   - pip=24.0
-  - pip:
+  - pip: 
+    - opencv
     - torchvision
     - torch
+    - pynput
     - pyquaternion
     - pyyaml
     - rospkg
