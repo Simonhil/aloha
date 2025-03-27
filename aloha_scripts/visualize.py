@@ -88,9 +88,11 @@ tasks = [
 width, height = 250, 250  # Image resolution
 renderer = mujoco.Renderer(model, width, height)
 
+l_mid = model.body("left/target").mocapid[0]
+r_mid = model.body("right/target").mocapid[0]
 
-# mink.move_mocap_to_frame(model, data, "left/target", "left/gripper", "site")
-# mink.move_mocap_to_frame(model, data, "right/target", "right/gripper", "site")
+mink.move_mocap_to_frame(model, data, "left/target", "left/gripper", "site")
+mink.move_mocap_to_frame(model, data, "right/target", "right/gripper", "site")
 
 
 
@@ -100,10 +102,13 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
     #viewer.cam.fixedcamid = 4  # Use the first camera (change index as needed)
     #viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED  # Use a fixed camera
     while viewer.is_running():
+        #ee pos
+        l_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "left/target"))
+        r_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "right/target"))
 
-        # l_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "left/target"))
-        # r_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "right/target"))
 
+
+        #get simulated img
         renderer.update_scene(data, camera="overhead_cam")
         # img = renderer.render()
         # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
@@ -116,15 +121,12 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         J_rot = np.zeros((3, model.nv))  # Jacobian for angular velocity
 
     
-        # Compute the Jacobian for the end-effector
-        mujoco.mj_jacBody(model, data, J_pos, J_rot,1)
+        # Compute the Jacobian for the end-effector eevel
+        #mujoco.mj_jacBody(model, data, J_pos, J_rot,1)
+        # ee_linear_velocity = J_pos @ data.qvel
+        # ee_angular_velocity = J_rot @ data.qvel
 
-       
-
-        ee_linear_velocity = J_pos @ data.qvel
-        ee_angular_velocity = J_rot @ data.qvel
-        print(  ee_linear_velocity)
-
+        print(data.qvel)
         mujoco.mj_step(model, data)  # Step the simulation
         viewer.sync()
         time.sleep(0.01)  # Control the simulation speed

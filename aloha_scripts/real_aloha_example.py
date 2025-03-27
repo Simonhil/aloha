@@ -274,7 +274,7 @@ if __name__=='__main__':
             # Update task targets.
             l_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "left/target"))
             r_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "right/target"))
-
+        
             # Update posture task target.
             # input_data = mq3.get_input_data()
             # if input_data is not None:
