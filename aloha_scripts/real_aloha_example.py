@@ -51,8 +51,8 @@ def apply_z_rotation(quat, z_angle = np.pi / 2):
 
 
 
-_HERE = Path(__file__).parent.parent.parent.parent
-_XML = "../mujoco_assets/scene.xml"
+_HERE = Path(__file__).parent.parent
+_XML = _HERE / 'mujoco_assets' / "box_transfer.xml"
 
 # Single arm joint names.
 _JOINT_NAMES = [
@@ -340,17 +340,20 @@ if __name__=='__main__':
 
 
 
-             # Compute the Jacobian
-            J_pos = np.zeros((3, model.nv))  # Jacobian for linear velocity
-            J_rot = np.zeros((3, model.nv))  # Jacobian for angular velocity
+            #  # Compute the Jacobian
+            # J_pos = np.zeros((3, model.nv))  # Jacobian for linear velocity
+            # J_rot = np.zeros((3, model.nv))  # Jacobian for angular velocity
         
-            # Compute the Jacobian for the end-effector
-            mink.mj_jacBody(model, data, J_pos, J_rot,model.name2id("left/target"))
+            # # Compute the Jacobian for the end-effector
+            # mink.mj_jacBody(model, data, J_pos, J_rot,model.name2id("left/target"))
+        
 
-            print(data.qvel)
+            content ="vel" + str(right_robot.arm.get_ee_pose())
+            # content = content + "pos" + str(left_robot.dxl.joint_states.position)
 
-
-
+            print(content)
+            # with open("output.txt", "w") as file:
+            #     file.write(content)
             # data.ctrl[actuator_ids] = configuration.q[dof_ids]
             compensate_gravity(model, data, [left_subtree_id, right_subtree_id])
             mujoco.mj_step(model, data)
