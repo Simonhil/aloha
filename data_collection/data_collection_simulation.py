@@ -62,23 +62,25 @@ class DataCollectionManager:
 
         self.configuration = mink.Configuration(self.model)
 
-        tasks = [
-            self.l_ee_task := mink.FrameTask(
-                frame_name="left/gripper",
-                frame_type="site",
-                position_cost=1.0,
-                orientation_cost=1.0,
-                lm_damping=1.0,
-            ),
-            self.r_ee_task := mink.FrameTask(
-                frame_name="right/gripper",
-                frame_type="site",
-                position_cost=1.0,
-                orientation_cost=1.0,
-                lm_damping=1.0,
-            ),
-            self.posture_task := mink.PostureTask(model, cost=1e-4),
-        ]
+        self.l_ee_task = mink.FrameTask(
+            frame_name="left/gripper",
+            frame_type="site",
+            position_cost=1.0,
+            orientation_cost=1.0,
+            lm_damping=1.0,
+        )
+
+        self.r_ee_task = mink.FrameTask(
+            frame_name="right/gripper",
+            frame_type="site",
+            position_cost=1.0,
+            orientation_cost=1.0,
+            lm_damping=1.0,
+        )
+
+        self.posture_task = mink.PostureTask(model, cost=1e-4)
+
+        tasks = [self.l_ee_task, self.r_ee_task, self.posture_task]
 
          # Enable collision avoidance between the following geoms.
         l_wrist_geoms = mink.get_subtree_geom_ids(model, model.body("left/wrist_link").id)

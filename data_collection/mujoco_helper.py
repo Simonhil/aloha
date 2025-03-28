@@ -29,20 +29,29 @@ def get_ee_params(model, data, side):
     return position, velocity
 
 
-def get_gripper_state(model, data,side ):
-        # idleft = model.body("left/left_finger_link").id
-        # idright = model.body("left/right_finger_link").id
+def get_gripper_params(model, data,side ):
+        
 
-        # right = data.xpos[idright]
-        # left = data.xpos[idleft]
-        # print(left - right)
-        # thresh = self.leader_gripper.robot.metadata.max_width / 2
 
-        # if leader_gripper_width < thresh:
-        #     return -1
-        # else:
-        return 1
+        id = model.joint(F"{side}/gripper").id
+        joint = data.qpos[id]
+        
+        idleft = model.body("left/left_finger_link").id
+        idright = model.body("left/right_finger_link").id
+        right = data.xpos[idright]
+        left = data.xpos[idleft]
 
+        state = 0
+        width = left - right
+        #TODO nachmessen
+        thresh = 0.1/ 2
+
+        if width < thresh:
+            state -1
+        else:
+            state = 1
+        return {"state": state, "width":width, "joint":joint}
+     
 def get_joint_params(model,data, side:str):
     joint_names: list[str] = []
      #get all the ids
@@ -64,7 +73,7 @@ def get_joint_params(model,data, side:str):
 def get_params(model, data, side:str):
     joint_pos, joint_vel = get_joint_params(model, data, side)
     cat_pos, cat_vel = get_ee_params(model, data, side)
-    gripper_state = get_gripper_state(model, data, side)
+    gripper_state = get_gripper_params(model, data, side)
 
     return [joint_pos, joint_vel, cat_pos, cat_vel, gripper_state]
 
@@ -77,9 +86,9 @@ def get_pair_params_mujoco(model,data):
     joint_vel = torch.concat((left_params[1], right_params[1]))
     ee_pose = torch.concat((left_params[2], right_params[2]))
     ee_vel = torch.concat((left_params[3], right_params[3]))
-    gripper_state = torch.concat((left_params[4], right_params[4]))
+    gripper_params = [left_params[4], right_params[4]]
 
-    return [joint_pos, joint_vel, ee_pose, ee_vel, gripper_state]
+    return [joint_pos, joint_vel, ee_pose, ee_vel, gripper_params]
 
 
 def crop_img(img, cam_name):

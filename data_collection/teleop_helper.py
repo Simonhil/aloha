@@ -78,6 +78,9 @@ def arm_teleop_task(master_bot, puppet_bot, master_only):
     except KeyboardInterrupt:
         print("Teleop task stopped")
 
+
+
+
 def teleop(robot_side,master_only = False, init_node = False):
     """ A standalone function for experimenting with teleoperation. No data recording. """
 
@@ -110,6 +113,22 @@ def get_params(robot):
     gripper_state = joint_state.velocity[6]
 
     return[joint_pose, joint_vel, ee_pose, ee_vel, gripper_state]
+
+
+def get_gripper_params(robot):
+    
+    joint = get_arm_gripper_positions(robot)
+    width = robot.gripper.gripper_value
+    #TODO nachmessen da machwidth 250
+    thresh = 250 / 2
+
+    if width < thresh:
+        state -1
+    else:
+        state = 1
+    return {"state": state, "width":width, "joint":joint}
+
+
 
 def get_pair_params_aloha(right, left):
     left_params = get_params(left)
