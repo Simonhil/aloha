@@ -6,6 +6,9 @@ import cv2
 import time
 import sys
 import IPython
+import torch
+import imageio
+
 e = IPython.embed
 from constants import MASTER2PUPPET_JOINT_FN, DT, START_ARM_POSE, MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE
 #from robot_utils import torque_on, torque_off, move_arms, move_grippers, get_arm_gripper_positions
@@ -96,12 +99,14 @@ mink.move_mocap_to_frame(model, data, "right/target", "right/gripper", "site")
 
 
 
-
 # Launch the MuJoCo viewer
 with mujoco.viewer.launch_passive(model, data) as viewer:
     #viewer.cam.fixedcamid = 4  # Use the first camera (change index as needed)
     #viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED  # Use a fixed camera
     while viewer.is_running():
+
+        mink.move_mocap_to_frame(model, data, "left/target", "left/gripper", "site")
+        mink.move_mocap_to_frame(model, data, "right/target", "right/gripper", "site")
         #ee pos
         l_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "left/target"))
         r_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "right/target"))
@@ -109,24 +114,32 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
 
         #get simulated img
-        renderer.update_scene(data, camera="overhead_cam")
+        #renderer.update_scene(data, camera="overhead_cam")
         # img = renderer.render()
         # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
         # img_bgr = img_bgr[100:200, 100:200, :]
         # cv2.resize(img_bgr, (width, height))
         # cv2.imwrite("mujoco_camera_image.png", img_bgr)
 
+        # Create an offscreen renderer
+        #renderer = mujoco.Renderer(model, 1000, 1000)  # Set resolution
 
-        J_pos = np.zeros((3, model.nv))  # Jacobian for linear velocity
-        J_rot = np.zeros((3, model.nv))  # Jacobian for angular velocity
+        # List of camera names to capture
+        camera_names = ["wrist_cam_left","wrist_cam_right"]
 
-    
-        # Compute the Jacobian for the end-effector eevel
-        #mujoco.mj_jacBody(model, data, J_pos, J_rot,1)
-        # ee_linear_velocity = J_pos @ data.qvel
-        # ee_angular_velocity = J_rot @ data.qvel
+        # Capture and save images
+        for camera_name in camera_names:
+            
+            renderer.update_scene(data, camera=camera_name)
+            img = renderer.render()
 
-        print(data.qvel)
+            #imageio.imwrite(f"{camera_name}.png", img)
+            # Save the image
+            img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            img_bgr = img_bgr[100:200, 100:200, :]
+            img_bgr=cv2.resize(img_bgr, (width, height))
+            cv2.imwrite(camera_name +"mujoco_camera_image.png", img_bgr)
+
         mujoco.mj_step(model, data)  # Step the simulation
         viewer.sync()
         time.sleep(0.01)  # Control the simulation speed
