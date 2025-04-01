@@ -6,8 +6,9 @@ import cv2
 import time
 import sys
 import IPython
+import mujoco.renderer
 import torch
-import imageio
+
 
 e = IPython.embed
 from constants import MASTER2PUPPET_JOINT_FN, DT, START_ARM_POSE, MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE
@@ -20,6 +21,7 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 #from loop_rate_limiters import RateLimiter
+
 
 import mink
 
@@ -89,7 +91,7 @@ tasks = [
 
 # Create a renderer
 width, height = 250, 250  # Image resolution
-renderer = mujoco.Renderer(model, width, height)
+
 
 l_mid = model.body("left/target").mocapid[0]
 r_mid = model.body("right/target").mocapid[0]
@@ -129,17 +131,18 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
 
         # Capture and save images
         for camera_name in camera_names:
-            
-            renderer.update_scene(data, camera=camera_name)
-            img = renderer.render()
+
+
+           
 
             #imageio.imwrite(f"{camera_name}.png", img)
             # Save the image
-            img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            img_bgr = img_bgr[100:200, 100:200, :]
-            img_bgr=cv2.resize(img_bgr, (width, height))
-            cv2.imwrite(camera_name +"mujoco_camera_image.png", img_bgr)
-
+            # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            # img_bgr = img_bgr[100:200, 100:200, :]
+            # img_bgr=cv2.resize(img_bgr, (width, height))
+            # cv2.imwrite(camera_name +"mujoco_camera_image.png", img_bgr)
+            left_frame_id = model.site("left/gripper").id
+            print(data.subtree_linvel[left_frame_id])
         mujoco.mj_step(model, data)  # Step the simulation
         viewer.sync()
         time.sleep(0.01)  # Control the simulation speed

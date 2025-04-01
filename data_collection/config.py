@@ -17,5 +17,5 @@ class BaseConfig:
     VELOCITY_LIMITS = {k: np.pi for k in JOINT_NAMES}
     IMAGE_WIDTH= 640
     IMAGE_HIGHT=480
-
+    FREQ = 20
     SIMCAMS=["wrist_cam_left","wrist_cam_right", "overhead_cam"]
