@@ -12,7 +12,7 @@ import cv2
 import shutil
 from enum import Enum, auto
 #from aloha_scripts.real_aloha_example import get_ctrl_id_list
-from data_collection.mujoco_helper import get_pair_params_mujoco, store_and_capture_cams_mujoco
+from data_collection.mujoco_helper import get_pair_params_mujoco, mujoco_setup, store_and_capture_cams_mujoco
 from data_collection.teleop_helper import  get_pair_params_aloha, teleop, prep_robots
 from data_collection.config import BaseConfig as bc
 from utils.keyboard import KeyManager
@@ -44,123 +44,10 @@ class DataCollectionManager:
         # self.master_right, self.puppet_right = teleop("right",simulation, False)
         print("bots set up")
 
-    def get_ctrl_id_list(self,model, name):
-        id_list = []
-        for joint_name in bc.JOINT_NAMES:
-            id_list.append(model.actuator(f"{name}/{joint_name}").id)
-        return id_list
 
+    
 
-    def mujoco_setup(self, xml_path):
-        self.model = mujoco.MjModel.from_xml_path(str(xml_path))
-        self.data = mujoco.MjData(self.model)
-        model = self.model
-
-        # Bodies for which to apply gravity compensation.
-        left_subtree_id = self.model.body("left/base_link").id
-        right_subtree_id = self.model.body("right/base_link").id
-
-        # Get the dof and actuator ids for the joints we wish to control.
-        joint_names: list[str] = []
-        velocity_limits: dict[str, float] = {}
-        for prefix in ["left", "right"]:
-            for n in bc.JOINT_NAMES:
-                name = f"{prefix}/{n}"
-                joint_names.append(name)
-                velocity_limits[name] = bc.VELOCITY_LIMITS[n]
-        dof_ids = np.array([self.model.joint(name).id for name in joint_names])
-        self.data_diractuator_ids = np.array([self.model.actuator(name).id for name in joint_names])
-
-        self.configuration = mink.Configuration(self.model)
-
-        self.l_ee_task = mink.FrameTask(
-            frame_name="left/gripper",
-            frame_type="site",
-            position_cost=1.0,
-            orientation_cost=1.0,
-            lm_damping=1.0,
-        )
-
-        self.r_ee_task = mink.FrameTask(
-            frame_name="right/gripper",
-            frame_type="site",
-            position_cost=1.0,
-            orientation_cost=1.0,
-            lm_damping=1.0,
-        )
-
-        self.posture_task = mink.PostureTask(model, cost=1e-4)
-
-        tasks = [self.l_ee_task, self.r_ee_task, self.posture_task]
-
-         # Enable collision avoidance between the following geoms.
-        l_wrist_geoms = mink.get_subtree_geom_ids(model, model.body("left/wrist_link").id)
-        r_wrist_geoms = mink.get_subtree_geom_ids(model, model.body("right/wrist_link").id)
-        l_geoms = mink.get_subtree_geom_ids(model, model.body("left/upper_arm_link").id)
-        r_geoms = mink.get_subtree_geom_ids(model, model.body("right/upper_arm_link").id)
-        frame_geoms = mink.get_body_geom_ids(model, model.body("metal_frame").id)
-        collision_pairs = [
-            (l_wrist_geoms, r_wrist_geoms),
-            (l_geoms + r_geoms, frame_geoms + ["table"]),
-        ]
-        collision_avoidance_limit = mink.CollisionAvoidanceLimit(
-            model=model,
-            geom_pairs=collision_pairs,  # type: ignore
-            minimum_distance_from_collisions=0.05,
-            collision_detection_distance=0.1,
-        )
-
-        limits = [
-            mink.ConfigurationLimit(model=model),
-            mink.VelocityLimit(model, velocity_limits),
-            collision_avoidance_limit,
-        ]
-
-        l_mid = model.body("left/target").mocapid[0]
-        r_mid = model.body("right/target").mocapid[0]
-        solver = "quadprog"
-        pos_threshold = 5e-3
-        ori_threshold = 5e-3
-        max_iters = 5
-
-
-
-        #find all actuator ids
-        self.left_joint_actuator = self.get_ctrl_id_list(model, "left")
-        self.left_gripper_actuator = model.actuator("left/gripper").id
-        self.right_joint_actuator = self.get_ctrl_id_list(model, "right")
-        self.right_gripper_actuator = model.actuator("right/gripper").id
-
-        self.viewer = mujoco.viewer.launch_passive(
-        model=model, 
-        data=self.data, 
-        show_left_ui=False, 
-        show_right_ui=False
-        )
-
-        print("mojoco")
-        mujoco.mj_resetDataKeyframe(model, self.data, model.key("neutral_pose").id)
-        self.configuration.update(self.data.qpos)
-        mujoco.mj_forward(model, self.data)
-        self.posture_task.set_target_from_configuration(self.configuration)
-
-        # Initialize mocap targets at the end-effector site.
-        mink.move_mocap_to_frame(model, self.data, "left/target", "left/gripper", "site")
-        mink.move_mocap_to_frame(model, self.data, "right/target", "right/gripper", "site")
-
-
-
-
-        self.left_frame_id = model.site("left/gripper").id
-        self.right_frame_id = model.site("right/gripper").id
-        self.left_mocap_id =  model.body_mocapid[model.body("left/target").id]
-        self.right_mocap_id =  model.body_mocapid[model.body("right/target").id]
-      
-        self.renderer = mujoco.Renderer(model,1000,1000)
-
-        print("mujoco ready")
-
-
+    
 
 
     def reset(self):
@@ -169,7 +56,10 @@ class DataCollectionManager:
         self.master_left, self.puppet_left = teleop("left",self.is_simulation, True)
         self.master_right, self.puppet_right = teleop("right",self.is_simulation, False)
         if self.is_simulation:
-            self.mujoco_setup(self.xml_path)
+            (self.viewer, self.right_gripper_actuator, self.right_joint_actuator, self.left_gripper_actuator, self.left_joint_actuator,
+                    self.posture_task, self.r_ee_task, self.l_ee_task, 
+                    self.configuration, self.data_diractuator_ids,
+                   self. model, self.data)=mujoco_setup(self.xml_path)
             print("reset complete")
 
     #currently missing implementation for real cameras
@@ -299,7 +189,7 @@ class DataCollectionManager:
             self.follower_ee_vel_list.append(follower_params[3])
             self.follower_gripper_state_list.append(follower_params[4])
             timestep += 1
-            time.sleep(1/bc.FREQ)
+            time.sleep(bc.FREQ)
 
         
     def __collection_step(self, timestep: int):
@@ -312,7 +202,7 @@ class DataCollectionManager:
             self.data.ctrl[self.right_gripper_actuator] = self.master_right.dxl.joint_states.position[6]
             mujoco.mj_step(self.model, self.data)  # Step the simulation
             self.viewer.sync()
-            time.sleep(0.01)  # Control the simulation speed
+            time.sleep(bc.STEPSPEED)  # Control the simulation speed
             
             mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
