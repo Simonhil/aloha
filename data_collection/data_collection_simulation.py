@@ -59,7 +59,7 @@ class DataCollectionManager:
             (self.viewer, self.right_gripper_actuator, self.right_joint_actuator, self.left_gripper_actuator, self.left_joint_actuator,
                     self.posture_task, self.r_ee_task, self.l_ee_task, 
                     self.configuration, self.data_diractuator_ids,
-                   self. model, self.data)=mujoco_setup(self.xml_path)
+                   self. model, self.data, self.renderer)=mujoco_setup(self.xml_path)
             print("reset complete")
 
     #currently missing implementation for real cameras
@@ -153,12 +153,16 @@ class DataCollectionManager:
         self.leader_ee_pos_list = []
         self.leader_ee_vel_list = []
         self.leader_gripper_state_list = []
+        self.leader_gripper_width_list = []
+        self.leader_gripper_joint_list = []
         
         self.follower_joint_pos_list = []
         self.follower_joint_vel_list = []
         self.follower_ee_pos_list = []
         self.follower_ee_vel_list = []
         self.follower_gripper_state_list = []
+        self.follower_gripper_width_list = []
+        self.follower_gripper_joint_list = []
 
     def collection(self):
         timestep = 0
@@ -176,18 +180,23 @@ class DataCollectionManager:
 
             if self.is_simulation:
                 store_and_capture_cams_mujoco(self.data, self.renderer, self.cam_names,self.image_dir, timestep)
+                pass
 
             self.leader_joint_pos_list.append(leader_params[0])
             self.leader_joint_vel_list.append(leader_params[1])
             self.leader_ee_pos_list.append(leader_params[2])
             self.leader_ee_vel_list.append(leader_params[3])
             self.leader_gripper_state_list.append(leader_params[4])
+            self.leader_gripper_width_list.append(leader_params[5])
+            self.leader_gripper_joint_list.append(leader_params[6])
             
             self.follower_joint_pos_list.append(follower_params[0])
             self.follower_joint_vel_list.append(follower_params[1])
             self.follower_ee_pos_list.append(follower_params[2])
             self.follower_ee_vel_list.append(follower_params[3])
             self.follower_gripper_state_list.append(follower_params[4])
+            self.follower_gripper_width_list.append(follower_params[5])
+            self.follower_gripper_joint_list.append(follower_params[6])
             timestep += 1
             time.sleep(bc.FREQ)
 
@@ -214,25 +223,33 @@ class DataCollectionManager:
         leader_joint_vel_list = torch.stack(self.leader_joint_vel_list)
         leader_ee_pos_list = torch.stack(self.leader_ee_pos_list)
         leader_ee_vel_list = torch.stack(self.leader_ee_vel_list)
-        #leader_gripper_state_list = torch.Tensor(self.leader_gripper_state_list)
+        leader_gripper_state_list = torch.stack(self.leader_gripper_state_list)
+        leader_gripper_width_list = torch.stack(self.leader_gripper_width_list)
+        leader_gripper_joint_list = torch.stack(self.leader_gripper_joint_list)
         
         follower_joint_pos_list = torch.stack(self.follower_joint_pos_list)
         follower_joint_vel_list = torch.stack(self.follower_joint_vel_list)
         follower_ee_pos_list = torch.stack(self.follower_ee_pos_list)
         follower_ee_vel_list = torch.stack(self.follower_ee_vel_list)
-        #follower_gripper_state_list = torch.Tensor(self.follower_gripper_state_list)
+        follower_gripper_state_list = torch.stack(self.follower_gripper_state_list)
+        follower_gripper_width_list = torch.stack(self.follower_gripper_width_list)
+        follower_gripper_joint_list = torch.stack(self.follower_gripper_joint_list)
 
         torch.save(leader_joint_pos_list, self.record_dir / "leader_joint_pos.pt")
         torch.save(leader_joint_vel_list, self.record_dir / "leader_joint_vel.pt")
         torch.save(leader_ee_pos_list, self.record_dir / "leader_ee_pos.pt")
         torch.save(leader_ee_vel_list, self.record_dir / "leader_ee_vel.pt")
-        #torch.save(leader_gripper_state_list, self.record_dir / "leader_gripper_state.pt")
+        torch.save(leader_gripper_state_list, self.record_dir / "leader_gripper_state.pt")
+        torch.save(leader_gripper_width_list, self.record_dir / "leader_gripper_width.pt")
+        torch.save(leader_gripper_joint_list, self.record_dir / "leader_gripper_joint.pt")
 
         torch.save(follower_joint_pos_list, self.record_dir / "follower_joint_pos.pt")
         torch.save(follower_joint_vel_list, self.record_dir / "follower_joint_vel.pt")
         torch.save(follower_ee_pos_list, self.record_dir / "follower_ee_pos.pt")
         torch.save(follower_ee_vel_list, self.record_dir / "follower_ee_vel.pt")
-        #torch.save(follower_gripper_state_list, self.record_dir / "follower_gripper_state.pt")
+        torch.save(follower_gripper_state_list, self.record_dir / "follower_gripper_state.pt")
+        torch.save(follower_gripper_width_list, self.record_dir / "follower_gripper_width.pt")
+        torch.save(follower_gripper_joint_list, self.record_dir / "follower_gripper_joint.pt")
 
     # def __close_hardware_connections(self):
     #     self.follower_gripper.close()

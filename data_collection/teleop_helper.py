@@ -114,14 +114,14 @@ def get_params(robot):
     ee_vel = torch.zeros(6)
 
     #do be corrected
-    gripper_state = get_gripper_params(robot)
+    gripper_params = get_gripper_params(robot)
 
-    return [joint_pose, joint_vel, ee_pose, ee_vel, gripper_state]
+    return [joint_pose, joint_vel, ee_pose, ee_vel, gripper_params]
 
 
 def get_gripper_params(robot):
     
-    #joint = get_arm_gripper_positions(robot)
+    joint = robot.dxl.joint_states.position[6]
     width = robot.gripper.gripper_value
     #TODO nachmessen da maxwidth 250
     thresh = 250 / 2
@@ -130,17 +130,19 @@ def get_gripper_params(robot):
         state -1.0
     else:
         state = 1.0
-    params = [width, state]
+    params = [width, state, joint]
     return torch.tensor(params)
 
 
-def get_pair_params_aloha(right, left):
+def get_pair_params_aloha(left, right):
     left_params = get_params(left)
     right_params = get_params(right)
     joint_pos = torch.concat((left_params[0], right_params[0]))
     joint_vel = torch.concat((left_params[1], right_params[1]))
     ee_pose = torch.concat((left_params[2], right_params[2]))
     ee_vel = torch.concat((left_params[3], right_params[3]))
-    gripper_state = torch.concat((left_params[4], right_params[4]))
+    gripper_state = torch.concat((torch.tensor([left_params[4][0]]), torch.tensor([right_params[4][0]])))
+    gripper_width = torch.concat((torch.tensor([left_params[4][1]]), torch.tensor([right_params[4][1]])))
+    gripper_joint = torch.concat((torch.tensor([left_params[4][2]]), torch.tensor([right_params[4][2]])))
 
-    return [joint_pos, joint_vel, ee_pose, ee_vel, gripper_state]
+    return [joint_pos, joint_vel, ee_pose, ee_vel, gripper_state, gripper_width, gripper_joint]

@@ -7,7 +7,7 @@ import mink
 import mujoco
 import numpy as np
 import torch
-from data_collection.mujoco_helper import get_ctrl_id_list, get_joint_params, mujoco_setup
+from data_collection.mujoco_helper import get_ctrl_id_list, get_gripper_params, get_joint_params, mujoco_setup
 from data_collection.config import BaseConfig as bc
 import matplotlib.pyplot as plt
 
@@ -26,17 +26,21 @@ class JointReplay:
         (self.viewer, self.right_gripper_actuator, self.right_joint_actuator, self.left_gripper_actuator, self.left_joint_actuator,
                     self.posture_task, self.r_ee_task, self.l_ee_task, 
                     self.configuration, self.data_diractuator_ids,
-                   self. model, self.data)=mujoco_setup(xml_path)
+                   self. model, self.data,self.renderer)=mujoco_setup(xml_path)
         self.leader = leader
-        self.jointpositions = self.unpack_joint_positions(data_dir)
+        self.jointpositions, self.gripper_joints= self.unpack(data_dir)
       
 
+    def unpack(self, episode_path):
+        joints = self.unpack_single_param(episode_path,"joint_pos")
+        gripper_joints = self.unpack_single_param(episode_path,"gripper_joint")
+        return joints, gripper_joints
 
-    def unpack_joint_positions(self, episode_path):
+    def unpack_single_param(self, episode_path, param):
         if self.leader:
-            file = os.path.join(episode_path, 'leader_joint_pos.pt')
+            file = os.path.join(episode_path, f'leader_{param}.pt')
         else:
-            file = os.path.join(episode_path, 'follower_joint_pos.pt')
+            file = os.path.join(episode_path, f'follower_{param}.pt')
         #path = os.path.join(episode_path, "*.pickle")
       
             # Keys contained in .pickle:
@@ -47,8 +51,7 @@ class JointReplay:
 
 
 
-    def move_one_side(self, side:str, poses):
-        joint_names = []
+    def joint_move(self, poses, gripper_joints):
         left_ids = get_ctrl_id_list(self.model, "left")
         right_ids =get_ctrl_id_list(self.model, "right")
         # for n in bc.JOINT_NAMES:
@@ -59,33 +62,43 @@ class JointReplay:
         for i in range(6):
             self.data.ctrl[left_ids[i]] = poses[left_ids[i]]
             self.data.ctrl[right_ids[i]] = poses[right_ids[i]-1]
-
-           
+        self.data.ctrl[self.left_gripper_actuator] = gripper_joints[0]
+        self.data.ctrl[self.right_gripper_actuator] = gripper_joints[1]
     
     def move_robot_joint(self):
 
         new_joint_positions = []
-        for step in self.jointpositions:
-          
-            # self.data.ctrl[self.left_gripper_actuator] = self.master_left.dxl.joint_states.position[6]
-            # self.data.ctrl[self.right_gripper_actuator] = self.master_right.dxl.joint_states.position[6]
-            self.move_one_side("left", step)
-            self.move_one_side("right", step)
+        new_gripper_joints = []
+        for i in range(len(self.jointpositions)):
+            self.joint_move(self.jointpositions[i], self.gripper_joints[i])
             mujoco.mj_step(self.model, self.data)  # Step the simulation
             self.viewer.sync()
 
-            time.sleep(0.1)  # Control the simulation speed
+            time.sleep(bc.STEPSPEED)  # Control the simulation speed
             left_pos, _ = get_joint_params(self.model, self.data, "left")
             right_pos, _ = get_joint_params(self.model, self.data, "right")
             this_joint_pos = torch.concat((left_pos,right_pos))
+
+
+            left_g = torch.tensor([get_gripper_params(self.model, self.data, "left")[2]])
+            right_g = torch.tensor([get_gripper_params(self.model, self.data, "right")[2]])
+            this_gripper_joint = torch.concat((left_g, right_g))
+
+
+            new_gripper_joints.append( this_gripper_joint)
             new_joint_positions.append(this_joint_pos)
             mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
 
         time.sleep(1)
         self.plot_joints(self.jointpositions, np.array(new_joint_positions))
-
+        self.plot_gripper(self.gripper_joints, np.array(new_gripper_joints))
+        plt.show()
         self.viewer.close()
+
+
+
+
 
     def plot_joints(self, first, second):
         # Number of positions in each inner array
@@ -94,7 +107,7 @@ class JointReplay:
         # Create subplots
         num_plots = 4
         num_colums = 3
-        fig, axes = plt.subplots(num_plots, num_colums, figsize=(4 * num_colums, 4 * num_plots))
+        fig, sup = plt.subplots(num_plots, num_colums, figsize=(6 * num_colums, 4 * num_plots))
         # Plot each position separately
         fig.set_label("")
         fig.tight_layout(pad=4.0, h_pad=20) 
@@ -102,20 +115,45 @@ class JointReplay:
         for i in range(num_plots):
             for j in range(num_colums):
                 index = j + i*num_colums
-                axes[i][j].plot(first[:, index], label=f'Joints, Position {index}', marker='o')
-                axes[i][j].plot(second[:, index], label=f'Second, Position {index}', marker='s')
-                axes[i][j].set_xticks(np.arange(0, 20, 1))
-                axes[i][j].set_title(f'Plot for Position {index}')
-                axes[i][j].set_xlabel('Index')
-                axes[i][j].set_ylabel('Value')
-                axes[i][j].legend()
-                axes[i][j].grid(True)
+                sup[i][j].plot(first[:, index], label=f'Joints, Position {index}', marker='o')
+                sup[i][j].plot(second[:, index], label=f'Second, Position {index}', marker='s')
+                sup[i][j].set_xticks(np.arange(0, len(first), 200))
+                sup[i][j].set_title(f'Plot for Position {index}')
+                sup[i][j].set_xlabel('Index')
+                sup[i][j].set_ylabel('Value')
+                sup[i][j].legend()
+                sup[i][j].grid(True)
            
         # Adjust layout
         plt.tight_layout()
-        plt.show()
+        
 
 
+    def plot_gripper(self, first, second):
+        # Number of positions in each inner array
+       
+
+        # Create subplots
+        num_plots = 2
+        num_colums = 1
+        fig, sup = plt.subplots(num_plots, num_colums, figsize=(6 * num_colums, 4 * num_plots))
+        # Plot each position separately
+        fig.set_label("gripper")
+        fig.tight_layout(pad=4.0, h_pad=20) 
+        fig.subplots_adjust(wspace=1, hspace=5)
+        for i in range(num_plots):
+                index = i
+                sup[i].plot(first[:,i], label=f'gripper, Position {index}', marker='o')
+                sup[i].plot(second[:,i], label=f'Second, Position {index}', marker='s')
+                sup[i].set_xticks(np.arange(0, len(first), 200))
+                sup[i].set_title(f'Plot for Position {index}')
+                sup[i].set_xlabel('Index')
+                sup[i].set_ylabel('Value')
+                sup[i].legend()
+                sup[i].grid(True)
+           
+        # Adjust layout
+        plt.tight_layout()
 
 
 
@@ -125,7 +163,9 @@ if __name__ == "__main__":
     xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
     data_dir= "/home/sihi/Desktop/2025_04_01-10_17_50",
     rp = JointReplay(
-        xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
-        data_dir="/home/sihi/Desktop/2025_04_01-10_17_50",
+        #xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
+        #data_dir="/home/sihi/Desktop/2025_04_02-12_23_08",
+        xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
+        data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
         leader=False, reward=None)
     rp.move_robot_joint()

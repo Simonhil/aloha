@@ -89,6 +89,13 @@ def mujoco_setup(xml_path):
             ori_threshold = 5e-3
             max_iters = 5
 
+            # Create a renderer
+
+ 
+
+
+            renderer = mujoco.Renderer(model, bc.IMAGE_WIDTH,bc.IMAGE_HIGHT)
+ 
 
 
             #find all actuator ids
@@ -121,7 +128,7 @@ def mujoco_setup(xml_path):
             return (viewer, right_gripper_actuator, right_joint_actuator, left_gripper_actuator, left_joint_actuator,
                     posture_task, r_ee_task, l_ee_task, 
                     configuration, data_diractuator_ids,
-                    model, data)
+                    model, data, renderer)
 
 
 
@@ -145,10 +152,9 @@ def get_ee_params(model, data, side):
 
 def get_gripper_params(model, data,side ):
         
-
-
-    # id = model.joint(F"{side}/gripper").id
-    # joint = data.qpos[id]
+    id = model.joint(f"{side}/left_finger").id
+    
+    joint = data.qpos[id]
     
     idleft = model.body(f"{side}/left_finger_link").id
     idright = model.body(f"{side}/right_finger_link").id
@@ -166,7 +172,7 @@ def get_gripper_params(model, data,side ):
         state -1.0
     else:
         state = 1.0
-    params = [width[1], state]
+    params = [width[1], state, joint]
     return torch.tensor(params)
      
 def get_joint_params(model,data, side:str):
@@ -203,10 +209,12 @@ def get_pair_params_mujoco(model,data):
     joint_vel = torch.concat((left_params[1], right_params[1]))
     ee_pose = torch.concat((left_params[2], right_params[2]))
     ee_vel = torch.concat((left_params[3], right_params[3]))
-    gripper_params = torch.concat((left_params[4], right_params[4]))
+    gripper_state = torch.concat((torch.tensor([left_params[4][0]]), torch.tensor([right_params[4][0]])))
+    gripper_width = torch.concat((torch.tensor([left_params[4][1]]), torch.tensor([right_params[4][1]])))
+    gripper_joint = torch.concat((torch.tensor([left_params[4][2]]), torch.tensor([right_params[4][2]])))
 
 
-    return [joint_pos, joint_vel, ee_pose, ee_vel, gripper_params]
+    return [joint_pos, joint_vel, ee_pose, ee_vel, gripper_state, gripper_width, gripper_joint]
 
 
 def crop_img(img, cam_name):
