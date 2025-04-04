@@ -289,7 +289,8 @@
     <joint joint1="right/left_finger" joint2="right/right_finger" polycoef="0 1 0 0 0"/>
   </equality>
 
-  <include file="joint_position_actuators.xml"/>
+  <!include file="joint_position_actuators.xml"/>
+  <include file="joint_velocity_actuators.xml"/>
   <include file="keyframe_ctrl.xml"/>
 
   <!-- <sensor>

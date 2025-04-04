@@ -26,6 +26,7 @@ class JointReplay:
         cam_record:bool,
         stepsize,
         reward,
+        pos
       
     ):
         self.data_dir = data_dir
@@ -37,12 +38,16 @@ class JointReplay:
                    self. model, self.data,self.renderer)=mujoco_setup(xml_path)
         self.leader = leader
         
-        self.jointpositions, self.gripper_joints= self.unpack(data_dir)
+        self.jointpositions, self.gripper_joints= self.unpack(data_dir,pos)
  
       
 
-    def unpack(self, episode_path):
-        joints = self.unpack_single_param(episode_path,"joint_pos")
+    def unpack(self, episode_path, pos):
+        if not pos:
+            joints = self.unpack_single_param(episode_path,"joint_vel")
+        else:  
+            joints = self.unpack_single_param(episode_path,"joint_pos")
+
         gripper_joints = self.unpack_single_param(episode_path,"gripper_joint")
         return joints, gripper_joints
 
@@ -197,10 +202,12 @@ def make_video(img_dir, name, dir):
     frames = create_img_vector(img_dir)
     imageio.mimsave(f"{dir}/{name}.mp4", np.stack(frames), fps=25)
 
-def single_replay(replay, video, leader,cam, step, reward, dir, plot):
+def single_replay(replay, video, leader,cam, step, reward, dir, plot,pos):
     if replay :
         xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
         data_dir= "/home/sihi/Desktop/2025_04_04-12_10_40",
+
+
         rp = JointReplay(
             # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/sihi/delete/download/EXAMPLE",
@@ -208,7 +215,10 @@ def single_replay(replay, video, leader,cam, step, reward, dir, plot):
             data_dir= dir,
             # xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
-            leader=leader, cam_record = cam,stepsize=step, reward=reward)
+            leader=leader, cam_record = cam,stepsize=step, reward=reward,
+            pos=pos)
+        
+
         rp.move_robot_joint(plot)
     if video :
         make_video(dir + str("/images/overhead_cam_orig"), "top",dir)
@@ -217,13 +227,13 @@ def single_replay(replay, video, leader,cam, step, reward, dir, plot):
 
 if __name__ == "__main__":
     _HERE = Path(__file__).parent.parent.parent
-    replay = False
-    video = True
+    replay = True
+    video = False
     data_path = "/home/i53/student/shilber/Downloads/first10_50HZ"
     #single_replay(replay, video=video, leader=True, cam=True,step=1,  reward=None, dir= data_path)
     for name in os.listdir(data_path):
         dir = data_path + "/" + str(name)
         print(name)
-        single_replay(replay=replay, video=video, leader=True, cam=True,step=1, reward=None, dir= dir, plot = False)
+        single_replay(replay=replay, video=video, leader=True, cam=True,step=1, reward=None, dir= dir, plot = False, pos=False)
 
     
