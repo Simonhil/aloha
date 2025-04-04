@@ -75,7 +75,7 @@ class JointReplay:
         self.data.ctrl[self.left_gripper_actuator] = gripper_joints[0]
         self.data.ctrl[self.right_gripper_actuator] = gripper_joints[1]
     
-    def move_robot_joint(self):
+    def move_robot_joint(self, plot):
 
         new_joint_positions = []
         new_gripper_joints = []
@@ -114,9 +114,10 @@ class JointReplay:
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
 
         time.sleep(1)
-        self.plot_joints(self.jointpositions, np.array(new_joint_positions))
-        self.plot_gripper(self.gripper_joints, np.array(new_gripper_joints))
-        plt.show()
+        if plot:
+            self.plot_joints(self.jointpositions, np.array(new_joint_positions))
+            self.plot_gripper(self.gripper_joints, np.array(new_gripper_joints))
+            plt.show()
         self.viewer.close()
 
 
@@ -190,16 +191,12 @@ def create_img_vector(img_folder_path):
         cam_list.append(img_array)
     return cam_list
 
-def make_video(img_dir, name):
-
+def make_video(img_dir, name, dir):
+    print("img  " + str(img_dir))
     frames = create_img_vector(img_dir)
-    imageio.mimsave(f"{name}.mp4", np.stack(frames), fps=25)
+    imageio.mimsave(f"{dir}/{name}.mp4", np.stack(frames), fps=25)
 
-
-if __name__ == "__main__":
-    _HERE = Path(__file__).parent.parent.parent
-    replay = True
-    video = True
+def single_replay(replay, video, leader,cam, step, reward, dir, plot):
     if replay :
         xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
         data_dir= "/home/sihi/Desktop/2025_04_01-10_17_50",
@@ -207,14 +204,25 @@ if __name__ == "__main__":
             # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/sihi/delete/download/EXAMPLE",
             xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
-            data_dir="/home/i53/student/shilber/delete/EXAMPLE",
+            data_dir= dir,
             # xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
-            leader=False, cam_record = True,stepsize=2, reward=None)
-        rp.move_robot_joint()
+            leader=leader, cam_record = cam,stepsize=step, reward=reward)
+        rp.move_robot_joint(plot)
     if video :
-        make_video("/home/sihi/delete/download/EXAMPLE/images/overhead_cam_orig", "top[200:620,:,:]")
-        make_video("/home/sihi/delete/download/EXAMPLE/images/wrist_cam_left_orig", "left[100:,:,:]")
-        make_video("/home/sihi/delete/download/EXAMPLE/images/wrist_cam_right_orig", "right[100:,:,:]")
+        make_video(dir + str("/images/overhead_cam_orig"), "top",dir)
+        #make_video(dir + str ("/images/wrist_cam_left_orig"), "left[100:,:,:]",dir)
+        #make_video(dir+ str ("/images/wrist_cam_right_orig"), "right[100:,:,:]", dir)
+
+if __name__ == "__main__":
+    _HERE = Path(__file__).parent.parent.parent
+    replay = False
+    video = True
+    data_path = "/home/i53/student/shilber/Downloads/first10_50HZ"
+    #single_replay(replay, video=video, leader=True, cam=True,step=1,  reward=None, dir= data_path)
+    for name in os.listdir(data_path):
+        dir = data_path + "/" + str(name)
+        print(name)
+        single_replay(replay=replay, video=video, leader=True, cam=True,step=1, reward=None, dir= dir, plot = False)
 
     
