@@ -97,7 +97,7 @@ class JointReplay:
 
 
 
-            time.sleep(bc.STEPSPEED)  # Control the simulation speed
+            #time.sleep(bc.STEPSPEED)  # Control the simulation speed
             left_pos, _ = get_joint_params(self.model, self.data, "left")
             right_pos, _ = get_joint_params(self.model, self.data, "right")
             this_joint_pos = torch.concat((left_pos,right_pos))
@@ -112,6 +112,7 @@ class JointReplay:
             new_joint_positions.append(this_joint_pos)
             mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
+            time.sleep(bc.STEPSPEED)  # Control the simulation speed
 
         time.sleep(1)
         if plot:
@@ -199,7 +200,7 @@ def make_video(img_dir, name, dir):
 def single_replay(replay, video, leader,cam, step, reward, dir, plot):
     if replay :
         xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
-        data_dir= "/home/sihi/Desktop/2025_04_01-10_17_50",
+        data_dir= "/home/sihi/Desktop/2025_04_04-12_10_40",
         rp = JointReplay(
             # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/sihi/delete/download/EXAMPLE",
