@@ -15,9 +15,11 @@ class BaseConfig:
     # Single arm velocity limits, taken from:
     # https://github.com/Interbotix/interbotix_ros_manipulators/blob/main/interbotix_ros_xsarms/interbotix_xsarm_descriptions/urdf/vx300s.urdf.xacro
     VELOCITY_LIMITS = {k: np.pi for k in JOINT_NAMES}
-    IMAGE_WIDTH= 640
-    IMAGE_HIGHT=480
-    FREQ = 0.005
+    IMAGE_WIDTH= 680
+    IMAGE_HIGHT=680
+    END_WIDTH = 224
+    END_HIGHT = 224
+    FREQ = 0.01
     PHYSICSTIME = 0.005
     STEPSPEED = 0.01
     SIMCAMS=["wrist_cam_left","wrist_cam_right", "overhead_cam"]

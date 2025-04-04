@@ -16,7 +16,7 @@ from constants import MASTER2PUPPET_JOINT_FN, DT, START_ARM_POSE, MASTER_GRIPPER
 
 from pathlib import Path
 from typing import Optional, Sequence
-
+from data_collection.config import BaseConfig as bc
 import mujoco
 import mujoco.viewer
 import numpy as np
@@ -105,6 +105,7 @@ mink.move_mocap_to_frame(model, data, "right/target", "right/gripper", "site")
 with mujoco.viewer.launch_passive(model, data) as viewer:
     #viewer.cam.fixedcamid = 4  # Use the first camera (change index as needed)
     #viewer.cam.type = mujoco.mjtCamera.mjCAMERA_FIXED  # Use a fixed camera
+    renderer = mujoco.Renderer(model, bc.IMAGE_WIDTH,bc.IMAGE_HIGHT)
     while viewer.is_running():
 
         mink.move_mocap_to_frame(model, data, "left/target", "left/gripper", "site")
@@ -113,36 +114,40 @@ with mujoco.viewer.launch_passive(model, data) as viewer:
         l_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "left/target"))
         r_ee_task.set_target(mink.SE3.from_mocap_name(model, data, "right/target"))
 
-
-
         #get simulated img
-        #renderer.update_scene(data, camera="overhead_cam")
-        # img = renderer.render()
-        # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-        # img_bgr = img_bgr[100:200, 100:200, :]
-        # cv2.resize(img_bgr, (width, height))
-        # cv2.imwrite("mujoco_camera_image.png", img_bgr)
+        camera_name = "wrist_cam_left"
+        renderer.update_scene(data, camera=camera_name)
+        img = renderer.render()
+
+        
+        #imageio.imwrite(f"{camera_name}.png", img)
+        # Save the image
+        img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        img_bgr = img_bgr[100:,:,:]
+        img_bgr=cv2.resize(img_bgr, (bc.END_WIDTH, bc.END_HIGHT))
+       
+        cv2.imwrite(f"{camera_name}.png", img_bgr)
 
         # Create an offscreen renderer
-        #renderer = mujoco.Renderer(model, 1000, 1000)  # Set resolution
+          # Set resolution
 
         # List of camera names to capture
-        camera_names = ["wrist_cam_left","wrist_cam_right"]
+        #camera_names = ["wrist_cam_left","wrist_cam_right"]
 
         # Capture and save images
-        for camera_name in camera_names:
+        # for camera_name in camera_names:
 
 
            
 
-            #imageio.imwrite(f"{camera_name}.png", img)
-            # Save the image
-            # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            # img_bgr = img_bgr[100:200, 100:200, :]
-            # img_bgr=cv2.resize(img_bgr, (width, height))
-            # cv2.imwrite(camera_name +"mujoco_camera_image.png", img_bgr)
-            left_frame_id = model.site("left/gripper").id
-            print(data.subtree_linvel[left_frame_id])
+        #     #imageio.imwrite(f"{camera_name}.png", img)
+        #     # Save the image
+        #     # img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+        #     # img_bgr = img_bgr[100:200, 100:200, :]
+        #     # img_bgr=cv2.resize(img_bgr, (width, height))
+        #     # cv2.imwrite(camera_name +"mujoco_camera_image.png", img_bgr)
+        #     left_frame_id = model.site("left/gripper").id
+        #     print(data.subtree_linvel[left_frame_id])
         mujoco.mj_step(model, data)  # Step the simulation
         viewer.sync()
         time.sleep(0.01)  # Control the simulation speed

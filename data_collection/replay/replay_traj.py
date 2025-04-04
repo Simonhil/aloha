@@ -3,11 +3,15 @@ import os
 from pathlib import Path
 import time
 
+import cv2
+import natsort
+
 import mink
 import mujoco
 import numpy as np
 import torch
-from data_collection.mujoco_helper import get_ctrl_id_list, get_gripper_params, get_joint_params, mujoco_setup
+import imageio
+from data_collection.mujoco_helper import get_ctrl_id_list, get_gripper_params, get_joint_params, mujoco_setup, store_and_capture_cams_mujoco
 from data_collection.config import BaseConfig as bc
 import matplotlib.pyplot as plt
 
@@ -19,16 +23,22 @@ class JointReplay:
         xml_path,
         data_dir,
         leader:bool,
+        cam_record:bool,
+        stepsize,
         reward,
       
     ):
-        print(data_dir)
+        self.data_dir = data_dir
+        self.stepsize = stepsize
+        self.cam_record = cam_record
         (self.viewer, self.right_gripper_actuator, self.right_joint_actuator, self.left_gripper_actuator, self.left_joint_actuator,
                     self.posture_task, self.r_ee_task, self.l_ee_task, 
                     self.configuration, self.data_diractuator_ids,
                    self. model, self.data,self.renderer)=mujoco_setup(xml_path)
         self.leader = leader
+        
         self.jointpositions, self.gripper_joints= self.unpack(data_dir)
+ 
       
 
     def unpack(self, episode_path):
@@ -69,10 +79,23 @@ class JointReplay:
 
         new_joint_positions = []
         new_gripper_joints = []
-        for i in range(len(self.jointpositions)):
+
+        
+        for i in range(0,len(self.jointpositions),self.stepsize):
             self.joint_move(self.jointpositions[i], self.gripper_joints[i])
             mujoco.mj_step(self.model, self.data)  # Step the simulation
             self.viewer.sync()
+
+
+            #cam
+            if self.cam_record:
+                img_dir = self.data_dir +"/images"
+                store_and_capture_cams_mujoco(self.data, self.renderer, bc.SIMCAMS, img_dir, i)
+
+
+
+
+
 
             time.sleep(bc.STEPSPEED)  # Control the simulation speed
             left_pos, _ = get_joint_params(self.model, self.data, "left")
@@ -156,16 +179,40 @@ class JointReplay:
         plt.tight_layout()
 
 
+def create_img_vector(img_folder_path):
+    cam_list = []
+    img_paths = glob.glob(os.path.join(img_folder_path, '*.png'))
+    img_paths = natsort.natsorted(img_paths)
+    #assert len(img_paths)==trajectory_length, "Number of images does not equal trajectory length!"
+
+    for img_path in img_paths:
+        img_array = cv2.cvtColor(cv2.imread(img_path), cv2.COLOR_RGB2BGR)
+        cam_list.append(img_array)
+    return cam_list
+
+def make_video(img_dir, name):
+
+    frames = create_img_vector(img_dir)
+    imageio.mimsave(f"{name}.mp4", np.stack(frames), fps=25)
 
 
 if __name__ == "__main__":
     _HERE = Path(__file__).parent.parent.parent
-    xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
-    data_dir= "/home/sihi/Desktop/2025_04_01-10_17_50",
-    rp = JointReplay(
-        #xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
-        #data_dir="/home/sihi/Desktop/2025_04_02-12_23_08",
-        xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
-        data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
-        leader=False, reward=None)
-    rp.move_robot_joint()
+    replay = True
+    video = True
+    if replay :
+        xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
+        data_dir= "/home/sihi/Desktop/2025_04_01-10_17_50",
+        rp = JointReplay(
+            xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
+            data_dir="/home/sihi/delete/download/EXAMPLE",
+            # xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
+            # data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
+            leader=False, cam_record = True,stepsize=2, reward=None)
+        rp.move_robot_joint()
+    if video :
+        make_video("/home/sihi/delete/download/EXAMPLE/images/overhead_cam_orig", "top[200:620,:,:]")
+        make_video("/home/sihi/delete/download/EXAMPLE/images/wrist_cam_left_orig", "left[100:,:,:]")
+        make_video("/home/sihi/delete/download/EXAMPLE/images/wrist_cam_right_orig", "right[100:,:,:]")
+
+    

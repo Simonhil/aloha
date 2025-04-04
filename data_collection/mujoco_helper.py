@@ -219,12 +219,12 @@ def get_pair_params_mujoco(model,data):
 
 def crop_img(img, cam_name):
     img = img
-    if cam_name is "overhead_cam":
-        img = img[300:1100,100:900,:]
-    elif cam_name is "wrist_cam_left":
-        img = img[:,:,:]
-    elif cam_name is "wrist_cam_right":
-        img = img[:,:,:]
+    if cam_name == "overhead_cam":
+        img = img[200:620,:,:]#[80:,50:630,:] #[:,:,:]
+    elif cam_name == "wrist_cam_left":
+        img = img[100:,:,:]#[:,:,:]
+    elif cam_name == "wrist_cam_right":
+        img = img[100:,:,:]#[:,:,:]
     else:
         raise NotImplementedError
     return img
@@ -242,6 +242,6 @@ def store_and_capture_cams_mujoco(data, renderer, names, img_dir, step):
             # Save the image
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             img_bgr = crop_img(img_bgr, camera_name)
-            img_bgr=cv2.resize(img_bgr, (bc.IMAGE_WIDTH, bc.IMAGE_HIGHT))
+            img_bgr=cv2.resize(img_bgr, (bc.END_WIDTH, bc.END_HIGHT))
             dir = f"{img_dir}/{camera_name}_orig/"
             cv2.imwrite(dir + str(step) + ".png", img_bgr)
