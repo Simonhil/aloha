@@ -204,8 +204,10 @@ if __name__ == "__main__":
         xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
         data_dir= "/home/sihi/Desktop/2025_04_01-10_17_50",
         rp = JointReplay(
-            xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
-            data_dir="/home/sihi/delete/download/EXAMPLE",
+            # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
+            # data_dir="/home/sihi/delete/download/EXAMPLE",
+            xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
+            data_dir="/home/i53/student/shilber/delete/EXAMPLE",
             # xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
             leader=False, cam_record = True,stepsize=2, reward=None)
