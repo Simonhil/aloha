@@ -97,7 +97,7 @@ class JointReplay:
 
 
 
-            time.sleep(bc.STEPSPEED)  # Control the simulation speed
+            #time.sleep(bc.STEPSPEED)  # Control the simulation speed
             left_pos, _ = get_joint_params(self.model, self.data, "left")
             right_pos, _ = get_joint_params(self.model, self.data, "right")
             this_joint_pos = torch.concat((left_pos,right_pos))
@@ -112,6 +112,7 @@ class JointReplay:
             new_joint_positions.append(this_joint_pos)
             mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
+            time.sleep(bc.STEPSPEED)  # Control the simulation speed
 
         time.sleep(1)
         self.plot_joints(self.jointpositions, np.array(new_joint_positions))
@@ -199,22 +200,23 @@ def make_video(img_dir, name):
 if __name__ == "__main__":
     _HERE = Path(__file__).parent.parent.parent
     replay = True
-    video = True
+    video = False
     if replay :
         xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
-        data_dir= "/home/sihi/Desktop/2025_04_01-10_17_50",
+        data_dir= "/home/sihi/Desktop/2025_04_04-12_10_40",
         rp = JointReplay(
             # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/sihi/delete/download/EXAMPLE",
-            xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
-            data_dir="/home/i53/student/shilber/delete/EXAMPLE",
-            # xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
-            # data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
-            leader=False, cam_record = True,stepsize=2, reward=None)
+            # xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
+            # data_dir="/home/i53/student/shilber/delete/EXAMPLE",
+            xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
+            data_dir="/home/simonhilber/delete/2025_04_04-14_54_32f",
+            leader=False, cam_record = False,stepsize=1, reward=None)
         rp.move_robot_joint()
     if video :
         make_video("/home/sihi/delete/download/EXAMPLE/images/overhead_cam_orig", "top[200:620,:,:]")
         make_video("/home/sihi/delete/download/EXAMPLE/images/wrist_cam_left_orig", "left[100:,:,:]")
         make_video("/home/sihi/delete/download/EXAMPLE/images/wrist_cam_right_orig", "right[100:,:,:]")
 
-    
+
+

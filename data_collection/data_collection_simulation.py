@@ -81,7 +81,7 @@ class DataCollectionManager:
 
 
                 self.stop_event = threading.Event()
-                collection.start()
+                #collection.start()
                 
 
                 print("Start! Press 's' to save collected data or 'd' to discard.")
@@ -96,8 +96,8 @@ class DataCollectionManager:
                     print("stopping")
                     self.viewer.close()
                     
-                    self.stop_event.set() 
-                    collection.join()
+                    #self.stop_event.set() 
+                    #collection.join()
                     del self.model
                     del self.data
                     time.sleep(0.1)
@@ -112,8 +112,7 @@ class DataCollectionManager:
                     elif km.key == "d":
                         print()
                         print("Discarding data")
-
-                        self.record_dir.rmdir()
+                        shutil.rmtree(self.record_dir)
                         print("Discarded!")
 
                     print(
@@ -166,39 +165,39 @@ class DataCollectionManager:
 
     def collection(self):
         timestep = 0
-        while not self.stop_event.is_set():
-            leader_params = get_pair_params_aloha(self.master_left, self.master_right)
-            
-            if self.is_simulation:
-                follower_params = get_pair_params_mujoco(self.model, self.data)
-                
-
-            else:
-                follower_params = get_pair_params_aloha(self.puppet_left, self.puppet_right)
-            
+        #while not self.stop_event.is_set():
+        leader_params = get_pair_params_aloha(self.master_left, self.master_right)
+        
+        if self.is_simulation:
+            follower_params = get_pair_params_mujoco(self.model, self.data)
             
 
-            if self.is_simulation:
-                store_and_capture_cams_mujoco(self.data, self.renderer, self.cam_names,self.image_dir, timestep)
-                pass
+        else:
+            follower_params = get_pair_params_aloha(self.puppet_left, self.puppet_right)
+        
+        
 
-            self.leader_joint_pos_list.append(leader_params[0])
-            self.leader_joint_vel_list.append(leader_params[1])
-            self.leader_ee_pos_list.append(leader_params[2])
-            self.leader_ee_vel_list.append(leader_params[3])
-            self.leader_gripper_state_list.append(leader_params[4])
-            self.leader_gripper_width_list.append(leader_params[5])
-            self.leader_gripper_joint_list.append(leader_params[6])
-            
-            self.follower_joint_pos_list.append(follower_params[0])
-            self.follower_joint_vel_list.append(follower_params[1])
-            self.follower_ee_pos_list.append(follower_params[2])
-            self.follower_ee_vel_list.append(follower_params[3])
-            self.follower_gripper_state_list.append(follower_params[4])
-            self.follower_gripper_width_list.append(follower_params[5])
-            self.follower_gripper_joint_list.append(follower_params[6])
-            timestep += 1
-            time.sleep(bc.FREQ)
+        # if self.is_simulation:
+        #     store_and_capture_cams_mujoco(self.data, self.renderer, self.cam_names,self.image_dir, timestep)
+        #     pass
+
+        self.leader_joint_pos_list.append(leader_params[0])
+        self.leader_joint_vel_list.append(leader_params[1])
+        self.leader_ee_pos_list.append(leader_params[2])
+        self.leader_ee_vel_list.append(leader_params[3])
+        self.leader_gripper_state_list.append(leader_params[4])
+        self.leader_gripper_width_list.append(leader_params[5])
+        self.leader_gripper_joint_list.append(leader_params[6])
+        
+        self.follower_joint_pos_list.append(follower_params[0])
+        self.follower_joint_vel_list.append(follower_params[1])
+        self.follower_ee_pos_list.append(follower_params[2])
+        self.follower_ee_vel_list.append(follower_params[3])
+        self.follower_gripper_state_list.append(follower_params[4])
+        self.follower_gripper_width_list.append(follower_params[5])
+        self.follower_gripper_joint_list.append(follower_params[6])
+        timestep += 1
+            #time.sleep(bc.FREQ)
 
         
     def __collection_step(self, timestep: int):
@@ -211,6 +210,7 @@ class DataCollectionManager:
             self.data.ctrl[self.right_gripper_actuator] = self.master_right.dxl.joint_states.position[6]
             mujoco.mj_step(self.model, self.data)  # Step the simulation
             self.viewer.sync()
+            self.collection()
             time.sleep(bc.STEPSPEED)  # Control the simulation speed
             
             mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
@@ -279,7 +279,7 @@ if __name__ == "__main__":
     cam_names=[str]
     data_collection_manager = DataCollectionManager(
         xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
-        data_dir=Path("/home/simonhilber/delete"),
+        data_dir=Path("/home/simonhilber/delete/first10_50HZ"),
         cam_names = bc.SIMCAMS,
         reward_func = place_holder,
         simulation= True

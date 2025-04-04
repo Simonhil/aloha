@@ -19,7 +19,7 @@ class BaseConfig:
     IMAGE_HIGHT=680
     END_WIDTH = 224
     END_HIGHT = 224
-    FREQ = 0.01
+    FREQ = 0.02
     PHYSICSTIME = 0.005
-    STEPSPEED = 0.01
+    STEPSPEED = 0.02
     SIMCAMS=["wrist_cam_left","wrist_cam_right", "overhead_cam"]
