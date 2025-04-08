@@ -2,6 +2,7 @@ import threading
 import time
 import sys
 import IPython
+import cv2
 import torch
 e = IPython.embed
 
@@ -9,7 +10,7 @@ from interbotix_xs_modules.arm import InterbotixManipulatorXS
 from interbotix_xs_msgs.msg import JointSingleCommand
 from aloha_scripts.constants import MASTER2PUPPET_JOINT_FN, DT, START_ARM_POSE, MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE
 from aloha_scripts.robot_utils import torque_on, torque_off, move_arms, move_grippers, get_arm_gripper_positions
-
+from data_collection.config import BaseConfig as bc
 from pathlib import Path
 from typing import Optional, Sequence
 from scipy.spatial.transform import Rotation as R
@@ -60,11 +61,11 @@ def prep_robots(master_bot, puppet_bot, master_only):
 
 
 
-def arm_teleop_task(master_bot, puppet_bot, master_only):
+def arm_teleop_task(master_bot, puppet_bot, master_only, stop_event):
     try:
         press_to_start(master_bot)
         gripper_command = JointSingleCommand(name="gripper")
-        while True:
+        while not stop_event.is_set():
 
 
             master_state_joints = master_bot.dxl.joint_states.position[:6]
@@ -84,25 +85,35 @@ def arm_teleop_task(master_bot, puppet_bot, master_only):
 
 
 
-def teleop(robot_side,master_only = False, init_node = False):
+def teleop(robot_side,master_only, init_node, stop_event):
     """ A standalone function for experimenting with teleoperation. No data recording. """
 
     puppet_bot =None
     if  not master_only: #allowing compatibility with simuation only
         if init_node:
-            puppet_bot = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper", robot_name=f'puppet_{robot_side}', init_node=True)
+            puppet_bot = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper", robot_name=f'puppet_{robot_side}', init_node=False)
         else:
             puppet_bot = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper", robot_name=f'puppet_{robot_side}', init_node=False)
-    master_bot = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper", robot_name=f'master_{robot_side}', init_node=init_node)
+    master_bot = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper", robot_name=f'master_{robot_side}', init_node=False)
 
     prep_robots(master_bot, puppet_bot, master_only)
  
 
     ### Teleoperation loop
 
-    threading.Thread(target=arm_teleop_task, args=(master_bot, puppet_bot, master_only)).start()
-    return master_bot,puppet_bot
+    thread = threading.Thread(target=arm_teleop_task, args=(master_bot, puppet_bot, master_only, stop_event))
+    thread.start()
+    return master_bot,puppet_bot, thread
 
+
+def reset(left_master, left_puppet, right_master, right_puppet,master_only,stop_event):
+        prep_robots(left_master, left_puppet, master_only)
+        prep_robots(right_master, right_puppet, master_only)
+        left_thread = threading.Thread(target=arm_teleop_task, args=(left_master, left_puppet, master_only, stop_event))
+        left_thread.start()
+        right_thread = threading.Thread(target=arm_teleop_task, args=(right_master, right_puppet, master_only, stop_event))
+        right_thread.start()
+        return left_thread, right_thread
 def get_params(robot):
     joint_state= robot.dxl.joint_states
 
@@ -146,3 +157,36 @@ def get_pair_params_aloha(left, right):
     gripper_joint = torch.concat((torch.tensor([left_params[4][2]]), torch.tensor([right_params[4][2]])))
 
     return [joint_pos, joint_vel, ee_pose, ee_vel, gripper_state, gripper_width, gripper_joint]
+
+
+
+
+def crop_img(img, cam_name):
+    img = img
+    if cam_name == 'cam_high':
+        
+        img = img[:350,50:500,:]#[80:,50:630,:] #[:,:,:]
+        img=cv2.resize(img, (420, 340))
+    elif cam_name == 'cam_left_wrist':
+        img = img[:,:,:]#[:,:,:]
+        img=cv2.resize(img, (224, 224))
+    elif cam_name == 'cam_right_wrist':
+        img = img[:,:,:]#[:,:,:]
+        img=cv2.resize(img, (224, 224))
+    else:
+        raise NotImplementedError
+    return img
+
+
+def store_and_capture_cams_real(recorder, img_dir, step):
+    
+    imgs = recorder.get_images()
+    for camera_name in bc.REALCAMS:
+          
+            #imageio.imwrite(f"{camera_name}.png", img)
+            # Save the image
+            img = imgs[camera_name]
+            img = crop_img(img, camera_name)
+            img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            dir = f"{img_dir}/{camera_name}_orig/"
+            cv2.imwrite(dir + str(step) + ".jpg", img_bgr)

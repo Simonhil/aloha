@@ -1,3 +1,4 @@
+import threading
 import numpy as np
 
 
@@ -22,4 +23,6 @@ class BaseConfig:
     FREQ = 0.02
     PHYSICSTIME = 0.005
     STEPSPEED = 0.02
+    REALCAMS = ['cam_high','cam_left_wrist', 'cam_right_wrist']
     SIMCAMS=["wrist_cam_left","wrist_cam_right", "overhead_cam"]
+    STOPEVENT = threading.Event()

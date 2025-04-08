@@ -2,6 +2,7 @@ import numpy as np
 import time
 from aloha_scripts.constants import DT
 from interbotix_xs_msgs.msg import JointSingleCommand
+from data_collection.config import BaseConfig as bc
 
 import IPython
 e = IPython.embed
@@ -14,7 +15,7 @@ class ImageRecorder:
         from sensor_msgs.msg import Image
         self.is_debug = is_debug
         self.bridge = CvBridge()
-        self.camera_names = ['cam_high', 'cam_low', 'cam_left_wrist', 'cam_right_wrist']
+        self.camera_names = bc.REALCAMS
         if init_node:
             rospy.init_node('image_recorder', anonymous=True)
         for cam_name in self.camera_names:

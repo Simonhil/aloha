@@ -211,9 +211,9 @@ def single_replay(replay, video, leader,cam, step, reward, dir, plot,pos):
         rp = JointReplay(
             # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/sihi/delete/download/EXAMPLE",
-            xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
+            #xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
             data_dir= dir,
-            # xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
+            xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
             leader=leader, cam_record = cam,stepsize=step, reward=reward,
             pos=pos)
@@ -221,19 +221,20 @@ def single_replay(replay, video, leader,cam, step, reward, dir, plot,pos):
 
         rp.move_robot_joint(plot)
     if video :
-        make_video(dir + str("/images/overhead_cam_orig"), "top",dir)
+        make_video(dir + str("/images/cam_high_orig"), "top",dir)
         #make_video(dir + str ("/images/wrist_cam_left_orig"), "left[100:,:,:]",dir)
         #make_video(dir+ str ("/images/wrist_cam_right_orig"), "right[100:,:,:]", dir)
 
 if __name__ == "__main__":
     _HERE = Path(__file__).parent.parent.parent
-    replay = True
-    video = False
-    data_path = "/home/i53/student/shilber/Downloads/first10_50HZ"
-    #single_replay(replay, video=video, leader=True, cam=True,step=1,  reward=None, dir= data_path)
-    for name in os.listdir(data_path):
-        dir = data_path + "/" + str(name)
-        print(name)
-        single_replay(replay=replay, video=video, leader=True, cam=True,step=1, reward=None, dir= dir, plot = False, pos=False)
+    replay = False
+    video = True
+    #data_path = "/home/i53/student/shilber/Downloads/first10_50HZ"
+    data_path = "/home/simonhilber/delete/2025_04_08-09_39_28"
+    single_replay(replay, video=video, leader=True, cam=True,step=1,  reward=None, dir= data_path, plot=True, pos= True)
+    # for name in os.listdir(data_path):
+    #     dir = data_path + "/" + str(name)
+    #     print(name)
+    #     single_replay(replay=replay, video=video, leader=True, cam=True,step=1, reward=None, dir= dir, plot = False, pos=False)
 
     

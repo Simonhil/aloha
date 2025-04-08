@@ -244,4 +244,4 @@ def store_and_capture_cams_mujoco(data, renderer, names, img_dir, step):
             img_bgr = crop_img(img_bgr, camera_name)
             img_bgr=cv2.resize(img_bgr, (bc.END_WIDTH, bc.END_HIGHT))
             dir = f"{img_dir}/{camera_name}_orig/"
-            cv2.imwrite(dir + str(step) + ".png", img_bgr)
+            cv2.imwrite(dir + str(step) + ".jpg", img_bgr)

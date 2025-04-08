@@ -11,9 +11,10 @@ import mink
 import cv2
 import shutil
 from enum import Enum, auto
+from aloha_scripts.robot_utils import Recorder, ImageRecorder
 #from aloha_scripts.real_aloha_example import get_ctrl_id_list
 from data_collection.mujoco_helper import get_pair_params_mujoco, mujoco_setup, store_and_capture_cams_mujoco
-from data_collection.teleop_helper import  get_pair_params_aloha, teleop, prep_robots
+from data_collection.teleop_helper import  get_pair_params_aloha, reset, store_and_capture_cams_real, teleop, prep_robots
 from data_collection.config import BaseConfig as bc
 from utils.keyboard import KeyManager
 class TeleoperationType(Enum):
@@ -37,6 +38,12 @@ class DataCollectionManager:
         self.data_dir = data_dir
         self.data_dir.mkdir(exist_ok=True)
         self.is_simulation= simulation
+        if not simulation:
+            #self.recorder_left = Recorder('left', init_node=True)
+            #self.recorder_right = Recorder('right', init_node=False)
+            self.image_recorder = ImageRecorder(init_node=True)
+        self.master_left, self.puppet_left, self.left_thread= teleop("left",self.is_simulation, True, bc.STOPEVENT)
+        self.master_right, self.puppet_right, self.right_thread= teleop("right",self.is_simulation, False, bc.STOPEVENT)
         print("setting up")
 
         print("setting up bots")
@@ -51,17 +58,15 @@ class DataCollectionManager:
 
 
     def reset(self):
-        
+        bc.STOPEVENT.clear()
         #reset real robots
-        self.master_left, self.puppet_left = teleop("left",self.is_simulation, True)
-        self.master_right, self.puppet_right = teleop("right",self.is_simulation, False)
+        self.left_thread, self.right_thread = reset(self.master_left, self.puppet_left, self.master_right, self.puppet_right,self.is_simulation, bc.STOPEVENT)
         if self.is_simulation:
             (self.viewer, self.right_gripper_actuator, self.right_joint_actuator, self.left_gripper_actuator, self.left_joint_actuator,
                     self.posture_task, self.r_ee_task, self.l_ee_task, 
                     self.configuration, self.data_diractuator_ids,
                    self. model, self.data, self.renderer)=mujoco_setup(self.xml_path)
             print("reset complete")
-
     #currently missing implementation for real cameras
     def start_key_listener(self):
         km = KeyManager()
@@ -77,11 +82,6 @@ class DataCollectionManager:
                     self.r_ee_task.set_target(mink.SE3.from_mocap_name(self.model, self.data, "right/target"))
                 self.__create_new_recording_dir()
                 self.__create_empty_data()
-                collection = threading.Thread(target=self.collection, args=())
-
-
-                self.stop_event = threading.Event()
-                #collection.start()
                 
 
                 print("Start! Press 's' to save collected data or 'd' to discard.")
@@ -94,14 +94,16 @@ class DataCollectionManager:
 
                 else:
                     print("stopping")
-                    self.viewer.close()
+                    bc.STOPEVENT.set() 
+                    if self.is_simulation:
+                        self.viewer.close()
+                        del self.model
+                        del self.data
+                        time.sleep(0.1)
+                    else:
+                        self.left_thread.join()
+                        self.right_thread.join()
                     
-                    #self.stop_event.set() 
-                    #collection.join()
-                    del self.model
-                    del self.data
-                    time.sleep(0.1)
-                   
                     if km.key == "s":
                         print()
                         print("Saving data")
@@ -138,13 +140,13 @@ class DataCollectionManager:
                 device_dir = self.image_dir / f"{name}_orig"
                 device_dir.mkdir()
         else:
-            for device in self.discrete_devices:
-                device_dir = self.image_dir / f"{device.name}_orig"
+            for device in bc.REALCAMS:
+                device_dir = self.image_dir / f"{device}_orig"
                 device_dir.mkdir()
             
-            for device in self.continuous_devices:
-                device_dir = self.image_dir / f"{device.name}_orig"
-                device_dir.mkdir()
+            # for device in self.continuous_devices:
+            #     device_dir = self.image_dir / f"{device.name}_orig"
+            #     device_dir.mkdir()
 
     def __create_empty_data(self):
         self.leader_joint_pos_list = []
@@ -165,7 +167,6 @@ class DataCollectionManager:
 
     def collection(self):
         timestep = 0
-        #while not self.stop_event.is_set():
         leader_params = get_pair_params_aloha(self.master_left, self.master_right)
         
         if self.is_simulation:
@@ -211,11 +212,13 @@ class DataCollectionManager:
             mujoco.mj_step(self.model, self.data)  # Step the simulation
             self.viewer.sync()
             self.collection()
-            time.sleep(bc.STEPSPEED)  # Control the simulation speed
             
             mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
-
+            time.sleep(bc.STEPSPEED)  # Control the simulation speed
+        else :
+            self.collection()
+            store_and_capture_cams_real(self.image_recorder, self.image_dir,self.timestep)
 
 
     def __save_data(self):
@@ -279,10 +282,10 @@ if __name__ == "__main__":
     cam_names=[str]
     data_collection_manager = DataCollectionManager(
         xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
-        data_dir=Path("/home/simonhilber/delete/first10_50HZ"),
+        data_dir=Path("/home/simonhilber/delete"),
         cam_names = bc.SIMCAMS,
         reward_func = place_holder,
-        simulation= True
+        simulation= False
        
     )
 
