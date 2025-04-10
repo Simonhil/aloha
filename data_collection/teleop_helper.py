@@ -114,6 +114,7 @@ def reset(left_master, left_puppet, right_master, right_puppet,master_only,stop_
         right_thread = threading.Thread(target=arm_teleop_task, args=(right_master, right_puppet, master_only, stop_event))
         right_thread.start()
         return left_thread, right_thread
+
 def get_params(robot):
     joint_state= robot.dxl.joint_states
 
@@ -190,3 +191,32 @@ def store_and_capture_cams_real(recorder, img_dir, step):
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             dir = f"{img_dir}/{camera_name}_orig/"
             cv2.imwrite(dir + str(step) + ".jpg", img_bgr)
+
+def get_images(recorder):
+    imgs = recorder.get_images()
+    images = {}
+    for camera_name in bc.REALCAMS:
+          
+            #imageio.imwrite(f"{camera_name}.png", img)
+            # Save the image
+            img = imgs[camera_name]
+            img = crop_img(img, camera_name)
+            img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
+            images[camera_name : img_bgr]
+    return images
+
+def get_observations(env, recorder):
+    images = get_images(recorder)
+    observation = env.get_observation()
+    observation['images': images]
+    return observation
+
+def step(action , env, recorder):
+    (step_type,
+    reward,
+    discount,
+    observation) = env.step(action)
+
+    observation = get_observations(env, recorder)
+    reward = reward
+    done = False

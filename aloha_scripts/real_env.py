@@ -124,6 +124,10 @@ class RealEnv:
             discount=None,
             observation=self.get_observation())
 
+
+
+
+    #mModified for savety and testing
     def step(self, action):
         state_len = int(len(action) / 2)
         left_action = action[:state_len]

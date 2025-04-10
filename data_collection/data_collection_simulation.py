@@ -215,11 +215,11 @@ class DataCollectionManager:
             
             mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
-            time.sleep(bc.STEPSPEED)  # Control the simulation speed
+
         else :
             self.collection()
             store_and_capture_cams_real(self.image_recorder, self.image_dir,self.timestep)
-
+        time.sleep(bc.FREQ)
 
     def __save_data(self):
         leader_joint_pos_list = torch.stack(self.leader_joint_pos_list)
