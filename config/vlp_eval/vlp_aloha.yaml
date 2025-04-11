@@ -1,0 +1,29 @@
+use_wandb: False
+wandb:
+  name: VLP_B20_UpdateBounds_35k_${now:%H-%M-%S}
+  group: EP100_${now:%Y-%m-%d}
+  project: VLP_Eval_Aloha_Sim_Transfer
+  entity: zhouhongyi
+  mode: null
+
+# Minimal eval config
+path:
+  saved_model_base_dir: "/home/simonhilber/VLP_MODELS/Node2_withProprio_S200_B10"  
+  checkpoint: "checkpoint_15000"
+  ema_file: "600000_ema_weights.pt"
+  use_ema: false
+  # dataset_statistics_path: "/home/reuss/tensorflow_datasets/aloha_sim_transfer/1.0.0/dataset_statistics_a86aae719a79b92ae8aeb8853d63acb65291a9a34292ffbe381047d94c8fe24c.json"
+  dataset_statistics_path: "/home/simonhilber/VLP_MODELS/data_statistics/dataset_statistics_e7f6b2ebecf014acd47c609c4e7bce08a366c51dc95c32634b993fc8ec8e7609.json"
+    #dataset_statistics_path: "/home/reuss/tensorflow_datasets/aloha_sim_insertion/1.0.0/dataset_statistics_149e7a226e0138fdbe5af23d71b0aa03524318af8f84f45fe7361798d3918ea6.json"
+
+evaluation:
+  num_parallel_envs: 1
+  num_episodes: 100
+  task: "transfer" # ["transfer", "insertion"]
+  pred_horizon: 200
+  replan_after_nsteps: [100]
+  ensemble_strategy: ["false"] # ["false", "act", "cogact"]
+  max_episode_steps: 3000
+
+device: "cuda"
+gpu_id: 0

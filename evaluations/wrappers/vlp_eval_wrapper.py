@@ -463,22 +463,30 @@ class VLPEvalWrapper:
                 self.execution_count = 0
                 self.pred_action_sequence = None
 
-        image = observation["pixels"]
-        state = observation["agent_pos"]
+        image_primary = observation['images']["cam_high"]
+        image_secondary = observation['images']["cam_left_wrist"]
+        image_third = observation['images']["cam_right_wrist"]
+        state = observation["qpos"]
 
-        assert image.dtype == np.uint8
-        image = torch.from_numpy(self._resize_image(image)).swapaxes(1, 2).unsqueeze(1).to(self.device)
+        image_primary = torch.from_numpy(self._resize_image(image_primary)).unsqueeze(0).unsqueeze(0).to(self.device)
+        image_secondary = torch.from_numpy(self._resize_image(image_secondary)).unsqueeze(0).unsqueeze(0).to(self.device)
+        image_third = torch.from_numpy(self._resize_image(image_third)).unsqueeze(0).unsqueeze(0).to(self.device)
 
-        proprio = torch.tensor(state)
+
+        proprio = torch.tensor(state).unsqueeze(0)
         zero_padding = torch.zeros((proprio.shape[0], 2,))
         proprio = self.scale_proprio_to_range(proprio)
         proprio = torch.cat([proprio, zero_padding], dim=-1)
 
 
         input_observation = {
-            "image_primary": image,
+            "image_primary": image_primary,
+            "image_secondary": image_secondary,
+            "image_wrist": image_third,
             "proprio": proprio.to(dtype=torch.bfloat16),
-            "pad_mask_dict": {"image_primary": torch.ones(image.shape[0], 1).bool().to(device=self.device)},
+            "pad_mask_dict": {"image_primary": torch.ones(image_primary.shape[0], 1).bool().to(device=self.device),
+                              "image_secondary": torch.ones(image_primary.shape[0], 1).bool().to(device=self.device),
+                              "image_wrist": torch.ones(image_primary.shape[0], 1).bool().to(device=self.device)},
         }
         input_observation = {
             "observation": input_observation,

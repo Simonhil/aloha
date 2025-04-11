@@ -202,13 +202,13 @@ def get_images(recorder):
             img = imgs[camera_name]
             img = crop_img(img, camera_name)
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
-            images[camera_name : img_bgr]
+            images[camera_name] = img_bgr
     return images
 
 def get_observations(env, recorder):
     images = get_images(recorder)
     observation = env.get_observation()
-    observation['images': images]
+    observation['images'] = images
     return observation
 
 def step(action , env, recorder):
@@ -220,3 +220,4 @@ def step(action , env, recorder):
     observation = get_observations(env, recorder)
     reward = reward
     done = False
+    return observation, reward , done

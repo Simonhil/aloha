@@ -4,11 +4,11 @@ import collections
 import matplotlib.pyplot as plt
 import dm_env
 
-from constants import DT, START_ARM_POSE, MASTER_GRIPPER_JOINT_NORMALIZE_FN, PUPPET_GRIPPER_JOINT_UNNORMALIZE_FN
-from constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN, PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN
-from constants import PUPPET_GRIPPER_JOINT_OPEN, PUPPET_GRIPPER_JOINT_CLOSE
-from robot_utils import Recorder, ImageRecorder
-from robot_utils import setup_master_bot, setup_puppet_bot, move_arms, move_grippers
+from aloha_scripts.constants import DT, START_ARM_POSE, MASTER_GRIPPER_JOINT_NORMALIZE_FN, PUPPET_GRIPPER_JOINT_UNNORMALIZE_FN
+from aloha_scripts.constants import PUPPET_GRIPPER_POSITION_NORMALIZE_FN, PUPPET_GRIPPER_VELOCITY_NORMALIZE_FN
+from aloha_scripts.constants import PUPPET_GRIPPER_JOINT_OPEN, PUPPET_GRIPPER_JOINT_CLOSE
+from aloha_scripts.robot_utils import Recorder, ImageRecorder
+from aloha_scripts.robot_utils import setup_master_bot, setup_puppet_bot, move_arms, move_grippers
 from interbotix_xs_modules.arm import InterbotixManipulatorXS
 from interbotix_xs_msgs.msg import JointSingleCommand
 
@@ -39,7 +39,7 @@ class RealEnv:
 
     def __init__(self, init_node, setup_robots=True):
         self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
-                                                       robot_name=f'puppet_left', init_node=init_node)
+                                                       robot_name=f'puppet_left', init_node=True)
         self.puppet_bot_right = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
                                                         robot_name=f'puppet_right', init_node=False)
         if setup_robots:
@@ -138,16 +138,16 @@ class RealEnv:
 
     #mModified for savety and testing
     def step(self, action):
-        state_len = int(len(action) / 2)
-        left_action = action[:state_len]
-        right_action = action[state_len:]
+        state_len = int(action.shape[-1] / 2)
+        left_action = action[0,:state_len]
+        right_action = action[0,state_len:]
 
         #arm movement
 
-        # self.puppet_bot_left.arm.set_joint_positions(left_action[:6], blocking=False)
-        # self.puppet_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
-        self.move_arm_slowly( self.puppet_bot_left, left_action)
-        self.move_arm_slowly(self.puppet_bot_right, right_action)
+        self.puppet_bot_left.arm.set_joint_positions(left_action[:6], blocking=False)
+        self.puppet_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
+        # self.move_arm_slowly( self.puppet_bot_left, left_action)
+        # self.move_arm_slowly(self.puppet_bot_right, right_action)
 
 
 

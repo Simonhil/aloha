@@ -1,7 +1,6 @@
 from typing import Callable, Optional
 import functools
 import os
-os.environ["CUDA_VISIBLE_DEVICES"] = str(4)
 
 from evaluations.wrappers.vlp_eval_wrapper import VLPEvalWrapper
 from utils.keyboard import KeyManager
@@ -22,9 +21,9 @@ import tensorflow as tf
 #import gymnasium as gym
 
 
-from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
-from stable_baselines3.common.env_util import make_vec_env
-from stable_baselines3.common.utils import set_random_seed
+# from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
+# from stable_baselines3.common.env_util import make_vec_env
+# from stable_baselines3.common.utils import set_random_seed
 
 
 import json
@@ -132,9 +131,9 @@ def rollout(
         disable=True,
         leave=False,
     )
-    observation = teleop_helper.get_observation(env,image_recorder)
+    observation = teleop_helper.get_observations(env,image_recorder)
     km = KeyManager()
-    while not done and step > max_episode_steps:
+    while not done and step < max_episode_steps:
         # Numpy array to tensor and changing dictionary keys to LeRobot policy format.
 
 
@@ -174,20 +173,20 @@ def rollout(
 
         done = done | new_done
 
-        all_actions.append(torch.from_numpy(action))
-        all_rewards.append(torch.from_numpy(reward))
-        all_dones.append(torch.tensor([new_done]))
-        all_successes.append(torch.tensor([is_success]))
+        # all_actions.append(torch.from_numpy([action]))
+        # all_rewards.append(torch.from_numpy([reward]))
+        # all_dones.append(torch.tensor([new_done]))
+        # all_successes.append(torch.tensor([is_success]))
 
         step += 1
         progbar.update()
 
     # Stack the sequence along the first dimension so that we have (batch, sequence, *) tensors.
     ret = {
-        "action": torch.stack(all_actions, dim=1),
-        "reward": torch.stack(all_rewards, dim=1),
-        "success": torch.stack(all_successes, dim=1),
-        "done": torch.stack(all_dones, dim=1),
+        # "action": torch.stack(all_actions, dim=1),
+        # "reward": torch.stack(all_rewards, dim=1),
+        # "success": torch.stack(all_successes, dim=1),
+        # "done": torch.stack(all_dones, dim=1),
     }
 
     return ret
@@ -197,7 +196,7 @@ def main():
 
     os.environ['MUJOCO_GL'] = 'egl'
 
-    with initialize(config_path="../../../conf/eval"):
+    with initialize(config_path="../config/vlp_eval"):
         cfg = compose(config_name="vlp_aloha")
 
     if cfg.gpu_id is not None:
@@ -222,7 +221,7 @@ def main():
         #TODO generalise
         # if cfg.evaluation.task == "transfer":
         #     env_id = "gym_aloha/AlohaTransferCube-v0"
-        task_description = "Pick up the cube with the right arm and transfer it to the left arm."
+        task_description = "cube transfer right to left "
         # elif cfg.evaluation.task == "insertion":
         #     env_id = "gym_aloha/AlohaInsertion-v0"
         #     task_description = "Insert the peg into the socket."
@@ -232,7 +231,6 @@ def main():
 
         seed = 0
 
-        set_random_seed(seed)
         env = real_env.make_real_env(init_node=False) #= SubprocVecEnv([make_env(env_id, i, 0, max_episode_steps) for i in range(n_parallel_envs)])
 
 
@@ -279,8 +277,8 @@ def main():
             rollout_data = rollout(env, vlp_agent, task_description, max_episode_steps)
 
 
-            if rollout_data[ "success"][-1] :
-                all_successes += 1
+            # if rollout_data[ "success"][-1] :
+                # all_successes += 1
 
 
 
