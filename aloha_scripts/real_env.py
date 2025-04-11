@@ -124,6 +124,15 @@ class RealEnv:
             discount=None,
             observation=self.get_observation())
 
+    def move_arm_slowly(self, bot, target_joints,  num_steps=50, sleep_time=0.02):
+        "This functino is used to avoid jittery movements of the robot"
+        current_joints = bot.arm.core.joint_states.position[:6]
+        traj = np.linspace(current_joints, target_joints[:6], num_steps)
+
+        for step_joints in traj:
+            bot.arm.set_joint_positions(step_joints, blocking=False)
+            time.sleep(sleep_time)
+
 
 
 
@@ -132,8 +141,16 @@ class RealEnv:
         state_len = int(len(action) / 2)
         left_action = action[:state_len]
         right_action = action[state_len:]
-        self.puppet_bot_left.arm.set_joint_positions(left_action[:6], blocking=False)
-        self.puppet_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
+
+        #arm movement
+
+        # self.puppet_bot_left.arm.set_joint_positions(left_action[:6], blocking=False)
+        # self.puppet_bot_right.arm.set_joint_positions(right_action[:6], blocking=False)
+        self.move_arm_slowly( self.puppet_bot_left, left_action)
+        self.move_arm_slowly(self.puppet_bot_right, right_action)
+
+
+
         self.set_gripper_pose(left_action[-1], right_action[-1])
         time.sleep(DT)
         return dm_env.TimeStep(
