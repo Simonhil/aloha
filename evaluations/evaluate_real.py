@@ -1,12 +1,13 @@
-from typing import Callable
+from typing import Callable, Optional
 import functools
 import os
 os.environ["CUDA_VISIBLE_DEVICES"] = str(4)
 
+from evaluations.wrappers.vlp_eval_wrapper import VLPEvalWrapper
 from utils.keyboard import KeyManager
 import wandb
 from typing import Callable
-
+from hydra import compose, initialize
 from flower_vla.agents.utils.diffuser_ema import EMAModel
 
 from flower_vla.agents.lang_encoders.florence_tokens import TokenVLM
@@ -18,7 +19,7 @@ import imageio
 import numpy as np
 import torch
 import tensorflow as tf
-import gymnasium as gym
+#import gymnasium as gym
 
 
 from stable_baselines3.common.vec_env import DummyVecEnv, SubprocVecEnv
@@ -52,51 +53,25 @@ from data_collection import teleop_helper
 
 
 
-def make_env(env_id: str, rank: int, seed: int = 0, max_episode_steps: int = 400) -> Callable:
-    """
-    Utility function for multiprocessed env.
+# def make_env(env_id: str, rank: int, seed: int = 0, max_episode_steps: int = 400) -> Callable:
+#     """
+#     Utility function for multiprocessed env.
 
-    :param env_id: the environment ID
-    :param num_env: the number of environments you wish to have in subprocesses
-    :param seed: the initial seed for RNG
-    :param rank: index of the subprocess
-    """
-    def _init():
-        env = gym.make(env_id,
-                       obs_type="pixels_agent_pos",
-                       render_mode="rgb_array",
-                       max_episode_steps=max_episode_steps)
-        env.reset(seed=seed + rank)
-        print(f"environment with seed: {seed + rank} and max_episode_steps: {max_episode_steps} created")
-        return env
-    set_random_seed(seed)
-    return _init
-
-
-def get_param_hash(model):
-    """
-    Generate a hash of model parameters to track changes in model state.
-
-    Args:
-        model: PyTorch model whose parameters will be hashed
-
-    Returns:
-        str: A hash string representing the current state of model parameters
-    """
-    import hashlib
-
-    # Initialize hasher
-    hasher = hashlib.md5()
-
-    # Iterate through all parameters
-    for param in model.parameters():
-        # Get numpy representation of the parameter
-        param_data = param.detach().cpu().numpy()
-        # Update hash with parameter data
-        hasher.update(param_data.tobytes())
-
-    # Return hexadecimal representation of hash
-    return hasher.hexdigest()
+#     :param env_id: the environment ID
+#     :param num_env: the number of environments you wish to have in subprocesses
+#     :param seed: the initial seed for RNG
+#     :param rank: index of the subprocess
+#     """
+#     def _init():
+#         env = gym.make(env_id,
+#                        obs_type="pixels_agent_pos",
+#                        render_mode="rgb_array",
+#                        max_episode_steps=max_episode_steps)
+#         env.reset(seed=seed + rank)
+#         print(f"environment with seed: {seed + rank} and max_episode_steps: {max_episode_steps} created")
+#         return env
+#     set_random_seed(seed)
+#     return _init
 
 
 
@@ -254,8 +229,14 @@ def main():
         # else:
         #     raise ValueError("Invalid task")
 
-        
+
+        seed = 0
+
+        set_random_seed(seed)
         env = real_env.make_real_env(init_node=False) #= SubprocVecEnv([make_env(env_id, i, 0, max_episode_steps) for i in range(n_parallel_envs)])
+
+
+
 
         print("==================================================================================")
         print(f'Evaluation for replan_after_nsteps: {combi["replan_after_nsteps"]}, ensemble_strategy: {combi["ensemble_strategies"]}')
@@ -294,7 +275,7 @@ def main():
         
 
         for episode in tqdm.tqdm(range(n_episodes)):
-
+            env.reset()
             rollout_data = rollout(env, vlp_agent, task_description, max_episode_steps)
 
 

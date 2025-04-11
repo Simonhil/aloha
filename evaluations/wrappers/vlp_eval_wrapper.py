@@ -10,17 +10,40 @@ from accelerate import Accelerator
 from safetensors.torch import load_model
 from typing import Callable, Optional
 
-from evaluations.evaluate_real import get_param_hash
+
 import hydra
 from hydra import compose, initialize
 from flower_vla.agents.utils.diffuser_ema import EMAModel
-
 from flower_vla.agents.lang_encoders.florence_tokens import TokenVLM
 from flower_vla.dataset.oxe.transforms import generate_policy_prompt, get_action_space_index
 from flower_vla.agents.utils.action_index import ActionIndex
 from flower_vla.dataset.utils.frequency_mapping import DATASET_FREQUENCY_MAP
 
 
+def get_param_hash(model):
+    """
+    Generate a hash of model parameters to track changes in model state.
+
+    Args:
+        model: PyTorch model whose parameters will be hashed
+
+    Returns:
+        str: A hash string representing the current state of model parameters
+    """
+    import hashlib
+
+    # Initialize hasher
+    hasher = hashlib.md5()
+
+    # Iterate through all parameters
+    for param in model.parameters():
+        # Get numpy representation of the parameter
+        param_data = param.detach().cpu().numpy()
+        # Update hash with parameter data
+        hasher.update(param_data.tobytes())
+
+    # Return hexadecimal representation of hash
+    return hasher.hexdigest()
 
 class VLPEvalWrapper:
     def __init__(self, 
