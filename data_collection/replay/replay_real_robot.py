@@ -4,19 +4,16 @@ from pathlib import Path
 import time
 
 import cv2
+import imageio
+from matplotlib import pyplot as plt
 import natsort
-
-import mink
-import mujoco
 import numpy as np
 import torch
-import imageio
-from data_collection.mujoco_helper import get_ctrl_id_list, get_gripper_params, get_joint_params, mujoco_setup, store_and_capture_cams_mujoco
+from aloha_scripts import real_env
 from data_collection.config import BaseConfig as bc
-import matplotlib.pyplot as plt
+from data_collection.teleop_helper import get_params
 
-
-class JointReplay:
+class JointReplayMujoco:
 
     def __init__(
         self,
@@ -32,15 +29,10 @@ class JointReplay:
         self.data_dir = data_dir
         self.stepsize = stepsize
         self.cam_record = cam_record
-        (self.viewer, self.right_gripper_actuator, self.right_joint_actuator, self.left_gripper_actuator, self.left_joint_actuator,
-                    self.posture_task, self.r_ee_task, self.l_ee_task, 
-                    self.configuration, self.data_diractuator_ids,
-                   self. model, self.data,self.renderer)=mujoco_setup(xml_path)
-        self.leader = leader
         
         self.jointpositions, self.gripper_joints= self.unpack(data_dir,pos)
  
-      
+        self.env = real_env.make_real_env(init_node=False)
 
     def unpack(self, episode_path, pos):
         if not pos:
@@ -66,65 +58,38 @@ class JointReplay:
 
 
 
-    def joint_move(self, poses, gripper_joints):
-        left_ids = get_ctrl_id_list(self.model, "left")
-        right_ids =get_ctrl_id_list(self.model, "right")
-        # for n in bc.JOINT_NAMES:
-        #     name = f"{side}/{n}"
-        #     joint_names.append(name)
-        # joint_ids = np.array([self.model.joint(name).id for name in joint_names])
-        #poses = torch.concat((poses, torch.tensor([0])))
-        for i in range(6):
-            self.data.ctrl[left_ids[i]] = poses[left_ids[i]]
-            self.data.ctrl[right_ids[i]] = poses[right_ids[i]-1]
-        self.data.ctrl[self.left_gripper_actuator] = gripper_joints[0]
-        self.data.ctrl[self.right_gripper_actuator] = gripper_joints[1]
-    
+   
     def move_robot_joint(self, plot):
 
         new_joint_positions = []
         new_gripper_joints = []
 
         
-        for i in range(0,len(self.jointpositions),self.stepsize):
-            self.joint_move(self.jointpositions[i], self.gripper_joints[i])
-            mujoco.mj_step(self.model, self.data)  # Step the simulation
-            self.viewer.sync()
+        for i in range(0,len(self.jointpositions)):
+            action_all_joint = torch.zeros(14)
+            action_all_joint[:6] = self.jointpositions[i][:6]
+            action_all_joint[6] = self.gripper_joints[i][0]
+            action_all_joint[7:13] = self.jointpositions[i][6:]
+            action_all_joint[13] = self.gripper_joints[i][1]
+            self.env.step(self.jointpositions[i])
+           
+            l_jp,l_jv,l_ep,l_ev,l_g= get_params(self.env.puppet_bot_left)
+            r_jp,r_jv,r_ep,r_ev,r_g= get_params(self.env.puppet_bot_right)
+            this_joint_pos = torch.concat((l_jp,r_jp))
 
 
-            #cam
-            if self.cam_record:
-                img_dir = self.data_dir +"/images"
-                store_and_capture_cams_mujoco(self.data, self.renderer, bc.SIMCAMS, img_dir, i)
-
-
-
-
-
-
-            #time.sleep(bc.STEPSPEED)  # Control the simulation speed
-            left_pos, _ = get_joint_params(self.model, self.data, "left")
-            right_pos, _ = get_joint_params(self.model, self.data, "right")
-            this_joint_pos = torch.concat((left_pos,right_pos))
-
-
-            left_g = torch.tensor([get_gripper_params(self.model, self.data, "left")[2]])
-            right_g = torch.tensor([get_gripper_params(self.model, self.data, "right")[2]])
-            this_gripper_joint = torch.concat((left_g, right_g))
+            this_gripper_joint = torch.concat((l_g, r_g))
 
 
             new_gripper_joints.append( this_gripper_joint)
             new_joint_positions.append(this_joint_pos)
-            mink.move_mocap_to_frame(self.model, self.data, "left/target", "left/gripper", "site")
-            mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
             time.sleep(bc.STEPSPEED)  # Control the simulation speed
-
         time.sleep(1)
         if plot:
             self.plot_joints(self.jointpositions, np.array(new_joint_positions))
             self.plot_gripper(self.gripper_joints, np.array(new_gripper_joints))
             plt.show()
-        self.viewer.close()
+ 
 
 
 
@@ -186,7 +151,10 @@ class JointReplay:
         plt.tight_layout()
 
 
-def create_img_vector(img_folder_path):
+
+
+
+def create_img_vector(img_folder_path, trajectory_length):
     cam_list = []
     img_paths = glob.glob(os.path.join(img_folder_path, '*.png'))
     img_paths = natsort.natsorted(img_paths)
@@ -197,10 +165,17 @@ def create_img_vector(img_folder_path):
         cam_list.append(img_array)
     return cam_list
 
+
+
+# takes the images from img_fir and saves them as video in dir
 def make_video(img_dir, name, dir):
     print("img  " + str(img_dir))
     frames = create_img_vector(img_dir)
     imageio.mimsave(f"{dir}/{name}.mp4", np.stack(frames), fps=25)
+
+
+
+
 
 def single_replay(replay, video, leader,cam, step, reward, dir, plot,pos):
     if replay :
@@ -208,7 +183,7 @@ def single_replay(replay, video, leader,cam, step, reward, dir, plot,pos):
         data_dir= "/home/sihi/Desktop/2025_04_04-12_10_40",
 
 
-        rp = JointReplay(
+        rp = JointReplayMujoco(
             # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/sihi/delete/download/EXAMPLE",
             #xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
@@ -231,10 +206,7 @@ if __name__ == "__main__":
     video = True
     #data_path = "/home/i53/student/shilber/Downloads/first10_50HZ"
     data_path = "/home/simonhilber/delete/2025_04_08-09_39_28"
-    single_replay(replay, video=video, leader=True, cam=True,step=1,  reward=None, dir= data_path, plot=True, pos= True)
-    # for name in os.listdir(data_path):
-    #     dir = data_path + "/" + str(name)
-    #     print(name)
-    #     single_replay(replay=replay, video=video, leader=True, cam=True,step=1, reward=None, dir= dir, plot = False, pos=False)
+    single_replay(replay, video=video, leader=True,  reward=None, dir= data_path, plot=True, pos= True)
+  
 
     
