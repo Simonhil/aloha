@@ -10,29 +10,28 @@ import natsort
 import numpy as np
 import torch
 from aloha_scripts import real_env
+from aloha_scripts.constants import PUPPET_GRIPPER_JOINT_UNNORMALIZE_FN
 from data_collection.config import BaseConfig as bc
 from data_collection.teleop_helper import get_params
 
-class JointReplayMujoco:
+class JointReplayReal:
 
     def __init__(
         self,
-        xml_path,
         data_dir,
         leader:bool,
-        cam_record:bool,
-        stepsize,
+       
         reward,
         pos
       
     ):
+        self.leader = leader
         self.data_dir = data_dir
-        self.stepsize = stepsize
-        self.cam_record = cam_record
+      
         
         self.jointpositions, self.gripper_joints= self.unpack(data_dir,pos)
  
-        self.env = real_env.make_real_env(init_node=False)
+        self.env = real_env.make_real_env(init_node=True)
 
     def unpack(self, episode_path, pos):
         if not pos:
@@ -64,17 +63,19 @@ class JointReplayMujoco:
         new_joint_positions = []
         new_gripper_joints = []
 
-        
+        self.env.reset()
         for i in range(0,len(self.jointpositions)):
-            action_all_joint = torch.zeros(14)
-            action_all_joint[:6] = self.jointpositions[i][:6]
-            action_all_joint[6] = self.gripper_joints[i][0]
-            action_all_joint[7:13] = self.jointpositions[i][6:]
-            action_all_joint[13] = self.gripper_joints[i][1]
-            self.env.step(self.jointpositions[i])
+            action_all_joint = torch.zeros((1,14))
+            action_all_joint[0,:6] = self.jointpositions[i][:6]
+            action_all_joint[0,6] = self.gripper_joints[i][0]
+            action_all_joint[0,7:13] = self.jointpositions[i][6:]
+            action_all_joint[0,13] = self.gripper_joints[i][1]
+
+            print(i)
+            self.env.step( action_all_joint)
            
-            l_jp,l_jv,l_ep,l_ev,l_g= get_params(self.env.puppet_bot_left)
-            r_jp,r_jv,r_ep,r_ev,r_g= get_params(self.env.puppet_bot_right)
+            l_jp,l_jv,l_ep,l_ev,l_g= get_params(self.env.puppet_bot_left, False)
+            r_jp,r_jv,r_ep,r_ev,r_g= get_params(self.env.puppet_bot_right, False)
             this_joint_pos = torch.concat((l_jp,r_jp))
 
 
@@ -139,7 +140,7 @@ class JointReplayMujoco:
         for i in range(num_plots):
                 index = i
                 sup[i].plot(first[:,i], label=f'gripper, Position {index}', marker='o')
-                sup[i].plot(second[:,i], label=f'Second, Position {index}', marker='s')
+                sup[i].plot(second[:,i], label=f'replay, Position {index}', marker='s')
                 sup[i].set_xticks(np.arange(0, len(first), 200))
                 sup[i].set_title(f'Plot for Position {index}')
                 sup[i].set_xlabel('Index')
@@ -177,20 +178,17 @@ def make_video(img_dir, name, dir):
 
 
 
-def single_replay(replay, video, leader,cam, step, reward, dir, plot,pos):
+def single_replay(replay, video, leader, reward, dir, plot,pos):
     if replay :
-        xml_path= _HERE / 'mujoco_assets' / "box_transfer.xml",
-        data_dir= "/home/sihi/Desktop/2025_04_04-12_10_40",
+        
 
-
-        rp = JointReplayMujoco(
+        rp = JointReplayReal(
             # xml_path="/home/sihi/Desktop/Bachelor/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/sihi/delete/download/EXAMPLE",
             #xml_path="/home/i53/student/shilber/aloha/mujoco_assets/box_transfer.xml",
             data_dir= dir,
-            xml_path="/home/simonhilber/aloha/mujoco_assets/box_transfer.xml",
             # data_dir="/home/simonhilber/delete/2025_04_03-09_26_22",
-            leader=leader, cam_record = cam,stepsize=step, reward=reward,
+            leader=leader, reward=reward,
             pos=pos)
         
 
@@ -202,10 +200,10 @@ def single_replay(replay, video, leader,cam, step, reward, dir, plot,pos):
 
 if __name__ == "__main__":
     _HERE = Path(__file__).parent.parent.parent
-    replay = False
-    video = True
+    replay = True
+    video = False
     #data_path = "/home/i53/student/shilber/Downloads/first10_50HZ"
-    data_path = "/home/simonhilber/delete/2025_04_08-09_39_28"
+    data_path = "/home/simonhilber/delete/2025_04_14-10_39_41"
     single_replay(replay, video=video, leader=True,  reward=None, dir= data_path, plot=True, pos= True)
   
 

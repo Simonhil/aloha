@@ -44,6 +44,7 @@ class ImageRecorder:
         # cv2.imwrite('/home/tonyzhao/Desktop/sample.jpg', cv_image)
         if self.is_debug:
             getattr(self, f'{cam_name}_timestamps').append(data.header.stamp.secs + data.header.stamp.secs * 1e-9)
+        bc.NEW_IMAGES = True
 
     def image_cb_cam_high(self, data):
         cam_name = 'cam_high'
@@ -63,9 +64,11 @@ class ImageRecorder:
 
     def get_images(self):
         image_dict = dict()
+        time_dict = dict()
         for cam_name in self.camera_names:
             image_dict[cam_name] = getattr(self, f'{cam_name}_image')
-        return image_dict
+            time_dict[cam_name] = getattr(self, f'{cam_name}_nsecs')
+        return image_dict, time_dict
 
     def print_diagnostics(self):
         def dt_helper(l):

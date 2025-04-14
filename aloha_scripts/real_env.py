@@ -39,7 +39,7 @@ class RealEnv:
 
     def __init__(self, init_node, setup_robots=True):
         self.puppet_bot_left = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
-                                                       robot_name=f'puppet_left', init_node=True)
+                                                       robot_name=f'puppet_left', init_node=init_node)
         self.puppet_bot_right = InterbotixManipulatorXS(robot_model="vx300s", group_name="arm", gripper_name="gripper",
                                                         robot_name=f'puppet_right', init_node=False)
         if setup_robots:
@@ -152,7 +152,7 @@ class RealEnv:
 
 
         self.set_gripper_pose(left_action[-1], right_action[-1])
-        time.sleep(DT)
+        #time.sleep(DT)
         return dm_env.TimeStep(
             step_type=dm_env.StepType.MID,
             reward=self.get_reward(),

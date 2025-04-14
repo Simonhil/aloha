@@ -3,12 +3,13 @@ import time
 import sys
 import IPython
 import cv2
+import numpy as np
 import torch
 e = IPython.embed
 
 from interbotix_xs_modules.arm import InterbotixManipulatorXS
 from interbotix_xs_msgs.msg import JointSingleCommand
-from aloha_scripts.constants import MASTER2PUPPET_JOINT_FN, DT, START_ARM_POSE, MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE
+from aloha_scripts.constants import MASTER2PUPPET_JOINT_FN, DT, MASTER_GRIPPER_JOINT_NORMALIZE_FN, PUPPET_GRIPPER_JOINT_NORMALIZE_FN, START_ARM_POSE, MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE
 from aloha_scripts.robot_utils import torque_on, torque_off, move_arms, move_grippers, get_arm_gripper_positions
 from data_collection.config import BaseConfig as bc
 from pathlib import Path
@@ -115,7 +116,86 @@ def reset(left_master, left_puppet, right_master, right_puppet,master_only,stop_
         right_thread.start()
         return left_thread, right_thread
 
-def get_params(robot):
+
+
+
+
+
+
+
+
+
+
+def get_action(master_bot_left, master_bot_right):
+    action = np.zeros(14) # 6 joint + 1 gripper, for two arms
+    # Arm actions
+    action[:6] = master_bot_left.dxl.joint_states.position[:6]
+    action[7:7+6] = master_bot_right.dxl.joint_states.position[:6]
+    # Gripper actions
+    action[6] = MASTER_GRIPPER_JOINT_NORMALIZE_FN(master_bot_left.dxl.joint_states.position[6])
+    action[7+6] = MASTER_GRIPPER_JOINT_NORMALIZE_FN(master_bot_right.dxl.joint_states.position[6])
+
+    return action
+
+def opening_ceremony(master_bot_left, master_bot_right, puppet_bot_left, puppet_bot_right):
+    """ Move all 4 robots to a pose where it is easy to start demonstration """
+    # reboot gripper motors, and set operating modes for all motors
+    puppet_bot_left.dxl.robot_reboot_motors("single", "gripper", True)
+    puppet_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
+    puppet_bot_left.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
+    master_bot_left.dxl.robot_set_operating_modes("group", "arm", "position")
+    master_bot_left.dxl.robot_set_operating_modes("single", "gripper", "position")
+    # puppet_bot_left.dxl.robot_set_motor_registers("single", "gripper", 'current_limit', 1000) # TODO(tonyzhaozh) figure out how to set this limit
+
+    puppet_bot_right.dxl.robot_reboot_motors("single", "gripper", True)
+    puppet_bot_right.dxl.robot_set_operating_modes("group", "arm", "position")
+    puppet_bot_right.dxl.robot_set_operating_modes("single", "gripper", "current_based_position")
+    master_bot_right.dxl.robot_set_operating_modes("group", "arm", "position")
+    master_bot_right.dxl.robot_set_operating_modes("single", "gripper", "position")
+    # puppet_bot_left.dxl.robot_set_motor_registers("single", "gripper", 'current_limit', 1000) # TODO(tonyzhaozh) figure out how to set this limit
+
+    torque_on(puppet_bot_left)
+    torque_on(master_bot_left)
+    torque_on(puppet_bot_right)
+    torque_on(master_bot_right)
+
+    # move arms to starting position
+    start_arm_qpos = START_ARM_POSE[:6]
+    move_arms([master_bot_left, puppet_bot_left, master_bot_right, puppet_bot_right], [start_arm_qpos] * 4, move_time=1.5)
+    # move grippers to starting position
+    move_grippers([master_bot_left, puppet_bot_left, master_bot_right, puppet_bot_right], [MASTER_GRIPPER_JOINT_MID, PUPPET_GRIPPER_JOINT_CLOSE] * 2, move_time=0.5)
+
+
+    # press gripper to start data collection
+    # disable torque for only gripper joint of master robot to allow user movement
+    master_bot_left.dxl.robot_torque_enable("single", "gripper", False)
+    master_bot_right.dxl.robot_torque_enable("single", "gripper", False)
+    print(f'Close the gripper to start')
+    close_thresh = -0.3
+    pressed = False
+    while not pressed:
+        gripper_pos_left = get_arm_gripper_positions(master_bot_left)
+        gripper_pos_right = get_arm_gripper_positions(master_bot_right)
+        if (gripper_pos_left < close_thresh) and (gripper_pos_right < close_thresh):
+            pressed = True
+        time.sleep(DT/10)
+    torque_off(master_bot_left)
+    torque_off(master_bot_right)
+    print(f'Started!')
+
+
+
+
+
+
+
+
+
+
+
+
+
+def get_params(robot, master:bool):
     joint_state= robot.dxl.joint_states
 
     joint_pose = torch.Tensor(joint_state.position[:6])
@@ -126,14 +206,17 @@ def get_params(robot):
     ee_vel = torch.zeros(6)
 
     #do be corrected
-    gripper_params = get_gripper_params(robot)
+    gripper_params = get_gripper_params(robot, master)
 
     return [joint_pose, joint_vel, ee_pose, ee_vel, gripper_params]
 
 
-def get_gripper_params(robot):
-    
-    joint = robot.dxl.joint_states.position[6]
+def get_gripper_params(robot, master):
+    if master:
+
+        joint = MASTER_GRIPPER_JOINT_NORMALIZE_FN(robot.dxl.joint_states.position[6])
+    else:
+        joint = PUPPET_GRIPPER_JOINT_NORMALIZE_FN(robot.dxl.joint_states.position[6])
     width = robot.gripper.gripper_value
     #TODO nachmessen da maxwidth 250
     thresh = 250 / 2
@@ -146,9 +229,9 @@ def get_gripper_params(robot):
     return torch.tensor(params)
 
 
-def get_pair_params_aloha(left, right):
-    left_params = get_params(left)
-    right_params = get_params(right)
+def get_pair_params_aloha(left, right, is_master):
+    left_params = get_params(left,is_master)
+    right_params = get_params(right, is_master)
     joint_pos = torch.concat((left_params[0], right_params[0]))
     joint_vel = torch.concat((left_params[1], right_params[1]))
     ee_pose = torch.concat((left_params[2], right_params[2]))
@@ -181,7 +264,7 @@ def crop_img(img, cam_name):
 
 def store_and_capture_cams_real(recorder, img_dir, step):
     
-    imgs = recorder.get_images()
+    imgs, timesteps = recorder.get_images()
     for camera_name in bc.REALCAMS:
           
             #imageio.imwrite(f"{camera_name}.png", img)
@@ -191,9 +274,10 @@ def store_and_capture_cams_real(recorder, img_dir, step):
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             dir = f"{img_dir}/{camera_name}_orig/"
             cv2.imwrite(dir + str(step) + ".jpg", img_bgr)
+    return timesteps
 
 def get_images(recorder):
-    imgs = recorder.get_images()
+    imgs, timesteps = recorder.get_images()
     images = {}
     for camera_name in bc.REALCAMS:
           
@@ -203,13 +287,17 @@ def get_images(recorder):
             img = crop_img(img, camera_name)
             img_bgr = cv2.cvtColor(img, cv2.COLOR_RGB2BGR)
             images[camera_name] = img_bgr
-    return images
+    return images, timesteps
+
+
 
 def get_observations(env, recorder):
     images = get_images(recorder)
     observation = env.get_observation()
     observation['images'] = images
     return observation
+
+
 
 def step(action , env, recorder):
     (step_type,

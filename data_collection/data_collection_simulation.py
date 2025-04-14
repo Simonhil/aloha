@@ -13,9 +13,12 @@ import shutil
 from enum import Enum, auto
 from aloha_scripts.robot_utils import Recorder, ImageRecorder
 #from aloha_scripts.real_aloha_example import get_ctrl_id_list
+from interbotix_xs_modules.arm import InterbotixManipulatorXS
+from interbotix_xs_msgs.msg import JointSingleCommand
 from data_collection.mujoco_helper import get_pair_params_mujoco, mujoco_setup, store_and_capture_cams_mujoco
-from data_collection.teleop_helper import  get_pair_params_aloha, reset, store_and_capture_cams_real, teleop, prep_robots
+from data_collection.teleop_helper import  get_action, get_pair_params_aloha, opening_ceremony, reset, store_and_capture_cams_real, teleop, prep_robots
 from data_collection.config import BaseConfig as bc
+import aloha_scripts.real_env as real_env
 from utils.keyboard import KeyManager
 class TeleoperationType(Enum):
     JOINT_SPACE = auto()
@@ -39,11 +42,15 @@ class DataCollectionManager:
         self.data_dir.mkdir(exist_ok=True)
         self.is_simulation= simulation
         if not simulation:
-            #self.recorder_left = Recorder('left', init_node=True)
-            #self.recorder_right = Recorder('right', init_node=False)
-            self.image_recorder = ImageRecorder(init_node=True)
-        self.master_left, self.puppet_left, self.left_thread= teleop("left",self.is_simulation, True, bc.STOPEVENT)
-        self.master_right, self.puppet_right, self.right_thread= teleop("right",self.is_simulation, False, bc.STOPEVENT)
+            self.master_left = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
+                                              robot_name=f'master_left', init_node=True)
+            self.master_right = InterbotixManipulatorXS(robot_model="wx250s", group_name="arm", gripper_name="gripper",
+                                               robot_name=f'master_right', init_node=False)
+            self.env = real_env.make_real_env(init_node=False)
+            
+        else:
+            self.master_left, self.puppet_left, self.left_thread= teleop("left",self.is_simulation, True, bc.STOPEVENT)
+            self.master_right, self.puppet_right, self.right_thread= teleop("right",self.is_simulation, False, bc.STOPEVENT)
         print("setting up")
 
         print("setting up bots")
@@ -60,17 +67,23 @@ class DataCollectionManager:
     def reset(self):
         bc.STOPEVENT.clear()
         #reset real robots
-        self.left_thread, self.right_thread = reset(self.master_left, self.puppet_left, self.master_right, self.puppet_right,self.is_simulation, bc.STOPEVENT)
+        
+        self.env.reset()
         if self.is_simulation:
+            self.left_thread, self.right_thread = reset(self.master_left, self.puppet_left, self.master_right, self.puppet_right,self.is_simulation, bc.STOPEVENT)
             (self.viewer, self.right_gripper_actuator, self.right_joint_actuator, self.left_gripper_actuator, self.left_joint_actuator,
                     self.posture_task, self.r_ee_task, self.l_ee_task, 
                     self.configuration, self.data_diractuator_ids,
                    self. model, self.data, self.renderer)=mujoco_setup(self.xml_path)
-            print("reset complete")
+        else: 
+            opening_ceremony(self.master_left, self.master_right, self.env.puppet_bot_left, self.env.puppet_bot_right)
+
+        print("reset complete")
     #currently missing implementation for real cameras
     def start_key_listener(self):
         km = KeyManager()
         print("Press 'n' to collect new data or 'q' to quit data collection")
+        #opening_ceremony(self.master_left, self.master_right, self.env.puppet_bot_left, self.env.puppet_bot_right)
 
         while km.key != "q":
             if km.key == "n":
@@ -101,9 +114,9 @@ class DataCollectionManager:
                         del self.data
                         time.sleep(0.1)
                     else:
-                        self.left_thread.join()
-                        self.right_thread.join()
-                    
+                        # self.left_thread.join()
+                        # self.right_thread.join()
+                        pass
                     if km.key == "s":
                         print()
                         print("Saving data")
@@ -156,6 +169,7 @@ class DataCollectionManager:
         self.leader_gripper_state_list = []
         self.leader_gripper_width_list = []
         self.leader_gripper_joint_list = []
+        self.leader_time =[]
         
         self.follower_joint_pos_list = []
         self.follower_joint_vel_list = []
@@ -164,17 +178,24 @@ class DataCollectionManager:
         self.follower_gripper_state_list = []
         self.follower_gripper_width_list = []
         self.follower_gripper_joint_list = []
+        self.follower_time = []
+
+
+        self.image_times = []
 
     def collection(self):
         timestep = 0
-        leader_params = get_pair_params_aloha(self.master_left, self.master_right)
+        leader_time = time.time()
+        leader_params = get_pair_params_aloha(self.master_left, self.master_right, is_master=True)
         
         if self.is_simulation:
+            follower_time = time.time()
             follower_params = get_pair_params_mujoco(self.model, self.data)
             
 
         else:
-            follower_params = get_pair_params_aloha(self.puppet_left, self.puppet_right)
+            follower_time = time.time()
+            follower_params = get_pair_params_aloha(self.env.puppet_bot_left, self.env.puppet_bot_right, is_master=False)
         
         
 
@@ -189,6 +210,7 @@ class DataCollectionManager:
         self.leader_gripper_state_list.append(leader_params[4])
         self.leader_gripper_width_list.append(leader_params[5])
         self.leader_gripper_joint_list.append(leader_params[6])
+        self.leader_time.append(leader_time)
         
         self.follower_joint_pos_list.append(follower_params[0])
         self.follower_joint_vel_list.append(follower_params[1])
@@ -197,8 +219,8 @@ class DataCollectionManager:
         self.follower_gripper_state_list.append(follower_params[4])
         self.follower_gripper_width_list.append(follower_params[5])
         self.follower_gripper_joint_list.append(follower_params[6])
+        self.follower_time.append(follower_time)
         timestep += 1
-            #time.sleep(bc.FREQ)
 
         
     def __collection_step(self, timestep: int):
@@ -217,9 +239,13 @@ class DataCollectionManager:
             mink.move_mocap_to_frame(self.model, self.data, "right/target", "right/gripper", "site")
 
         else :
+            action = torch.zeros((1,14))
+            action[0]=torch.tensor(get_action(self.master_left, self.master_right))
+            self.env.step(action)
             self.collection()
-            store_and_capture_cams_real(self.image_recorder, self.image_dir,self.timestep)
-        time.sleep(bc.FREQ)
+            images_times = store_and_capture_cams_real(self.env.image_recorder, self.image_dir,self.timestep)
+            self.image_times.append(images_times)
+        #time.sleep(bc.FREQ)
 
     def __save_data(self):
         leader_joint_pos_list = torch.stack(self.leader_joint_pos_list)
@@ -245,6 +271,7 @@ class DataCollectionManager:
         torch.save(leader_gripper_state_list, self.record_dir / "leader_gripper_state.pt")
         torch.save(leader_gripper_width_list, self.record_dir / "leader_gripper_width.pt")
         torch.save(leader_gripper_joint_list, self.record_dir / "leader_gripper_joint.pt")
+        torch.save(self.leader_time, self.record_dir / "leader_time.pt")
 
         torch.save(follower_joint_pos_list, self.record_dir / "follower_joint_pos.pt")
         torch.save(follower_joint_vel_list, self.record_dir / "follower_joint_vel.pt")
@@ -253,6 +280,22 @@ class DataCollectionManager:
         torch.save(follower_gripper_state_list, self.record_dir / "follower_gripper_state.pt")
         torch.save(follower_gripper_width_list, self.record_dir / "follower_gripper_width.pt")
         torch.save(follower_gripper_joint_list, self.record_dir / "follower_gripper_joint.pt")
+        torch.save(self.follower_time, self.record_dir / "follower_time.pt")
+
+        cam_time_top = []
+        cam_time_left = []
+        cam_time_right = []
+
+        print(self.image_times[0].keys())
+        for step in self.image_times:
+            cam_time_top.append( step['cam_high'])
+            cam_time_left.append(step['cam_left_wrist'])
+            cam_time_right.append(step['cam_right_wrist'])
+
+        torch.save(cam_time_top, self.record_dir / "cam_time_top.pt")
+        torch.save(cam_time_left, self.record_dir / "cam_time_left.pt")
+        torch.save(cam_time_right, self.record_dir / "cam_time_right.pt")
+        #torch.save(self.im, self.record_dir / "follower_time.pt")
 
     # def __close_hardware_connections(self):
     #     self.follower_gripper.close()
