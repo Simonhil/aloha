@@ -26,4 +26,6 @@ class BaseConfig:
     REALCAMS = ['cam_high','cam_left_wrist', 'cam_right_wrist']
     SIMCAMS=["wrist_cam_left","wrist_cam_right", "overhead_cam"]
     STOPEVENT = threading.Event()
-    NEW_IMAGES = False
+    NEW_IMAGES_TOP = False
+    NEW_IMAGE_LEFT= False
+    NEW_IMAGE_RIGHT = False

@@ -242,10 +242,11 @@ class DataCollectionManager:
             action = torch.zeros((1,14))
             action[0]=torch.tensor(get_action(self.master_left, self.master_right))
             self.env.step(action)
-            self.collection()
-            images_times = store_and_capture_cams_real(self.env.image_recorder, self.image_dir,self.timestep)
-            self.image_times.append(images_times)
-        time.sleep(bc.FREQ)
+            if bc.NEW_IMAGE_RIGHT and bc.NEW_IMAGE_LEFT and bc.NEW_IMAGES_TOP:
+                self.collection()
+                images_times = store_and_capture_cams_real(self.env.image_recorder, self.image_dir,self.timestep)
+                self.image_times.append(images_times)
+        #time.sleep(bc.FREQ)
 
     def __save_data(self):
         leader_joint_pos_list = torch.stack(self.leader_joint_pos_list)

@@ -44,10 +44,11 @@ class ImageRecorder:
         # cv2.imwrite('/home/tonyzhao/Desktop/sample.jpg', cv_image)
         if self.is_debug:
             getattr(self, f'{cam_name}_timestamps').append(data.header.stamp.secs + data.header.stamp.secs * 1e-9)
-        bc.NEW_IMAGES = True
+        
 
     def image_cb_cam_high(self, data):
         cam_name = 'cam_high'
+        bc.NEW_IMAGES_TOP = True
         return self.image_cb(cam_name, data)
 
     def image_cb_cam_low(self, data):
@@ -56,10 +57,12 @@ class ImageRecorder:
 
     def image_cb_cam_left_wrist(self, data):
         cam_name = 'cam_left_wrist'
+        bc.NEW_IMAGE_LEFT = True
         return self.image_cb(cam_name, data)
 
     def image_cb_cam_right_wrist(self, data):
         cam_name = 'cam_right_wrist'
+        bc.NEW_IMAGE_RIGHT = True
         return self.image_cb(cam_name, data)
 
     def get_images(self):
