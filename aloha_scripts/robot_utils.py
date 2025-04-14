@@ -67,7 +67,9 @@ class ImageRecorder:
         time_dict = dict()
         for cam_name in self.camera_names:
             image_dict[cam_name] = getattr(self, f'{cam_name}_image')
-            time_dict[cam_name] = getattr(self, f'{cam_name}_nsecs')
+            secs= getattr(self, f'{cam_name}_secs')
+            nsecs= getattr(self, f'{cam_name}_nsecs')
+            time_dict[cam_name] = secs + nsecs * 1e-9
         return image_dict, time_dict
 
     def print_diagnostics(self):
